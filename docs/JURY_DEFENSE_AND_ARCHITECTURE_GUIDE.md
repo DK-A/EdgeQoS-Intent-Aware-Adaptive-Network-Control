@@ -40,8 +40,8 @@ When home users engage in latency-sensitive tasks like video conferencing (Zoom,
 **EdgeQoS** is an intent-aware, self-calibrating Active Queue Management system engineered specifically for low-power residential broadband gateways (e.g., Raspberry Pi 4B, OpenWrt routers). It integrates:
 1. **Zero-DPI Early ML Classification:** Classifies encrypted application flows within the first 5–10 packets using pure statistical header features captured at line rate via `nftables` + `NFLOG` with a strict 40-byte snaplen invariant (0 bytes of payload leakage).
 2. **Ultra-Fast 0.75 µs Decision Latency:** Evaluates flows using a compact (1.7 KB) pure JSON CART decision tree, delivering sub-microsecond inference without deep learning hardware or external Python dependencies.
-3. **Conntrack Behavioral Rate Guard:** Defeats adversarial QoS exploitation by sampling connection byte rates at 4 Hz; any flow exceeding VoIP bandwidth budgets (256 kbps) masquerading as Voice is demoted to Bulk in $\le 1.00	ext{ s}$.
-4. **Queue-Location-Aware Capacity Controller:** Distinguishes between internal gateway backlog and upstream modem bufferbloat, executing fast-step-down rate adaptation that drains external modem buffers and recovers latency in **1.64 seconds** ($4.1	imes$ faster than `cake-autorate`).
+3. **Conntrack Behavioral Rate Guard:** Defeats adversarial QoS exploitation by sampling connection byte rates at 4 Hz; any flow exceeding VoIP bandwidth budgets (256 kbps) masquerading as Voice is demoted to Bulk in $\le 1.00\text{ s}$.
+4. **Queue-Location-Aware Capacity Controller:** Distinguishes between internal gateway backlog and upstream modem bufferbloat, executing fast-step-down rate adaptation that drains external modem buffers and recovers latency in **1.64 seconds** ($4.1\times$ faster than `cake-autorate`).
 
 ---
 
@@ -71,7 +71,7 @@ In the standard TCP/IP model:
 ### 2.2 Throughput, Latency, Jitter, and Packet Loss
 * **Throughput:** The volume of data delivered over time (e.g., 100 Megabits per second, or Mbps).
 * **Latency (RTT - Round-Trip Time):** The time it takes for a packet to travel from your PC to a remote server and receive an acknowledgment back (measured in milliseconds, ms).
-* **Jitter:** The statistical variation in packet arrival delay. For audio calls, jitter $> 30	ext{ ms}$ results in robotic voices, syllable clipping, and dropped calls.
+* **Jitter:** The statistical variation in packet arrival delay. For audio calls, jitter $> 30\text{ ms}$ results in robotic voices, syllable clipping, and dropped calls.
 * **Packet Loss:** The percentage of packets that never reach their destination and must be retransmitted or concealed.
 
 ### 2.3 The Bufferbloat Crisis: Physical Analogy & The Standing Delay Formula
@@ -80,15 +80,15 @@ Imagine a 4-inch plumbing pipe (your home 100 Mbps fiber line) connecting to a n
 * If you pour a tiny thimble of water into the tank (your WhatsApp voice packet), it must wait for all 100 gallons in front of it to drain before it exits!
 
 Mathematically, the standing delay caused by a full buffer is:
-$$	ext{Standing Delay } (T_{	ext{standing}}) = rac{	ext{Buffer Capacity (Bytes)}}{	ext{Link Bandwidth (Bytes/second)}}$$
+$$\text{Standing Delay } (T_{\text{standing}}) = \frac{\text{Buffer Capacity (Bytes)}}{\text{Link Bandwidth (Bytes/second)}}$$
 
 **Concrete Real-World Calculation:**
-* Suppose an unmanaged modem has a **256 KB** packet buffer ($256 	imes 1024 	imes 8 = 2{,}097{,}152	ext{ bits}$).
+* Suppose an unmanaged modem has a **256 KB** packet buffer ($256 \times 1024 \times 8 = 2{,}097{,}152\text{ bits}$).
 * On a healthy **100 Mbps** link:
-  $$T_{	ext{standing}} = rac{2{,}097{,}152	ext{ bits}}{100 	imes 10^6	ext{ bps}} = 0.02097	ext{ seconds} pprox 20.97	ext{ ms}$$
+  $$T_{\text{standing}} = \frac{2{,}097{,}152\text{ bits}}{100 \times 10^6\text{ bps}} = 0.02097\text{ seconds} \approx 20.97\text{ ms}$$
 * When link capacity drops to **20 Mbps** (peak hour ISP congestion):
-  $$T_{	ext{standing}} = rac{2{,}097{,}152	ext{ bits}}{20 	imes 10^6	ext{ bps}} = 0.10485	ext{ seconds} pprox 104.85	ext{ ms}$$
-* Add the 20 ms base propagation delay of the internet, and your voice call latency spikes to **$> 125	ext{ ms}$**! If the buffer is 1 MB or 2 MB (common in cheap DSL/cable modems), latency easily exceeds **$800	ext{ ms}$**—rendering interactive conversation impossible.
+  $$T_{\text{standing}} = \frac{2{,}097{,}152\text{ bits}}{20 \times 10^6\text{ bps}} = 0.10485\text{ seconds} \approx 104.85\text{ ms}$$
+* Add the 20 ms base propagation delay of the internet, and your voice call latency spikes to **$> 125\text{ ms}$**! If the buffer is 1 MB or 2 MB (common in cheap DSL/cable modems), latency easily exceeds **$800\text{ ms}$**—rendering interactive conversation impossible.
 
 ### 2.4 Queuing Disciplines (qdiscs) & Active Queue Management (AQM)
 A **qdisc** (queuing discipline) is the Linux kernel algorithm that determines how packets wait inside network interface queues before transmission:
@@ -135,7 +135,7 @@ Here is the exact technical dissection of every tool, library, and script in our
 * **The 40-Byte Snaplen Invariant (`T-PRIV`):**
   * Standard packet capture tools use a snaplen of 128 or 1514 bytes, capturing the user's private application data.
   * In EdgeQoS, we configure the kernel snaplen to **strictly 40 bytes**:
-    $$20	ext{ bytes (IPv4 Header)} + 20	ext{ bytes (TCP/UDP Ports, Flags, Window)} = 40	ext{ bytes}$$
+    $$20\text{ bytes (IPv4 Header)} + 20\text{ bytes (TCP/UDP Ports, Flags, Window)} = 40\text{ bytes}$$
   * Because application data only starts at byte 41, the kernel physically truncates the packet before copying it to the Netlink buffer.
   * **Proof:** Verified in `results/priv_report.txt` (Zero bytes of payload leaked across 10,000 packets).
 
@@ -169,7 +169,7 @@ To classify encrypted traffic without inspecting payloads, EdgeQoS computes 6 st
 
 ### 3.5 Machine Learning Engine: CART Decision Tree with Platt Calibration
 * **Why CART (Classification and Regression Trees)?**
-  * Neural networks (CNNs, Transformers) require millions of floating-point operations, complex C++ dependencies (`torch`, `onnxruntime`), and $> 15	ext{ ms}$ inference time.
+  * Neural networks (CNNs, Transformers) require millions of floating-point operations, complex C++ dependencies (`torch`, `onnxruntime`), and $> 15\text{ ms}$ inference time.
   * A CART decision tree consists entirely of simple nested `if-else` threshold comparisons (`if mean_len <= 180.5 and std_len <= 14.2: return VOICE`).
 * **Standalone 1.7 KB JSON Representation (`ml/models/tree_model.json`):**
   * We trained the model on synthetic traffic datasets using Group 5-Fold Cross Validation (to prevent data leakage across identical IP pairs).
@@ -177,32 +177,32 @@ To classify encrypted traffic without inspecting payloads, EdgeQoS computes 6 st
   * Our inference engine (`daemon/edgeqosd/model.py`) is written in standard Python with **zero external dependencies**—no `scikit-learn`, no `torch`.
 * **Platt Calibration:**
   * Raw decision tree leaves produce step-wise probabilities. We pass the leaf score through a sigmoid calibration function:
-    $$P(	ext{class} = k \mid x) = rac{1}{1 + e^{-(A \cdot x + B)}}$$
+    $$P(\text{class} = k \mid x) = \frac{1}{1 + e^{-(A \cdot x + B)}}$$
   * This guarantees well-calibrated confidence scores and prevents false-positive promotions.
 * **Inference Benchmark:**
-  * Tested over 10,000 iterations: **$p_{50} = 0.751\,\mu	ext{s}$**, **$p_{99} = 1.623\,\mu	ext{s}$** (measured in `results/inference_bench.json`).
+  * Tested over 10,000 iterations: **$p_{50} = 0.751\,\mu\text{s}$**, **$p_{99} = 1.623\,\mu\text{s}$** (measured in `results/inference_bench.json`).
 
 ### 3.6 Behavioral Rate Guard: `daemon/edgeqosd/guard.py`
 * **The Security Threat:** What if a user runs BitTorrent configured to use UDP with small packet sizes to trick the ML classifier into labeling it as "Voice"?
 * **The Guard Architecture:**
-  * Runs as a high-priority background thread polling Linux `conntrack` at 4 Hz (every $\Delta t = 250	ext{ ms}$).
+  * Runs as a high-priority background thread polling Linux `conntrack` at 4 Hz (every $\Delta t = 250\text{ ms}$).
   * Maintains a sliding byte deficit tracker for every flow marked with Voice priority (`ct mark 0x10`).
   * **The Bandwidth Budget:**
-    $$	ext{Max Voice Rate} = 256	ext{ kbps} \implies 	ext{Budget per tick} = rac{256 	imes 1000}{8 	imes 4} = 8{,}000	ext{ bytes}$$
+    $$\text{Max Voice Rate} = 256\text{ kbps} \implies \text{Budget per tick} = \frac{256 \times 1000}{8 \times 4} = 8{,}000\text{ bytes}$$
   * If a flow consumes more than 8,000 bytes in a 250 ms interval for 4 consecutive intervals ($K = 4$), the guard triggers:
     1. Demotes the flow mark immediately to Bulk (`ct mark 0x40`).
     2. Modifies `nftables` state so all subsequent packets are stamped with DSCP `CS1`.
   * **Theoretical Demotion Upper Bound:**
-    $$T_{	ext{demote,max}} = rac{K + 1}{f_{	ext{poll}}} = rac{4 + 1}{4} = 1.25	ext{ seconds}$$
-  * **Empirical Measurement:** Verified in simulation: **$1.00	ext{ second}$** flat!
+    $$T_{\text{demote,max}} = \frac{K + 1}{f_{\text{poll}}} = \frac{4 + 1}{4} = 1.25\text{ seconds}$$
+  * **Empirical Measurement:** Verified in simulation: **$1.00\text{ second}$** flat!
 
 ### 3.7 Queue-Location-Aware Capacity Controller: `daemon/edgeqosd/capacity.py`
 Traditional auto-rate daemons (`cake-autorate`) adjust gateway bandwidth purely based on external ping times. This is fatally flawed: if ping increases because your local Wi-Fi had interference, `cake-autorate` throttles your ISP bandwidth needlessly.
 
 **EdgeQoS Dual-Telemetry Controller:**
 Every 200 ms, the controller queries two independent signals:
-1. **External Delay ($\Delta D_{	ext{ext}}$):** Monitored via round-trip time deltas against upstream gateway probes.
-2. **Internal Voice Queue Backlog ($q_{	ext{internal}}$):** Monitored directly from the local kernel qdisc:
+1. **External Delay ($\Delta D_{\text{ext}}$):** Monitored via round-trip time deltas against upstream gateway probes.
+2. **Internal Voice Queue Backlog ($q_{\text{internal}}$):** Monitored directly from the local kernel qdisc:
    ```bash
    tc -s -j qdisc show dev eth0
    ```
@@ -210,22 +210,22 @@ Every 200 ms, the controller queries two independent signals:
 
 **The 5-State Decision Matrix:**
 
-| State | External Delay ($\Delta D_{	ext{ext}}$) | Internal Voice Backlog ($q_{	ext{internal}}$) | Diagnosis | Controller Action |
+| State | External Delay ($\Delta D_{\text{ext}}$) | Internal Voice Backlog ($q_{\text{internal}}$) | Diagnosis | Controller Action |
 | :---: | :---: | :---: | :---: | :---: |
-| **NORMAL** | $< 15	ext{ ms}$ | $< 1	ext{ ms}$ | Network healthy | Hold current shaped bandwidth |
-| **PROBE_UP** | $< 15	ext{ ms}$ for 10 ticks | $< 1	ext{ ms}$ | Unused headroom | Increase rate by $+1.0	ext{ Mbps}$ |
-| **INTERNAL_CONGESTION** | $> 25	ext{ ms}$ | $> 5	ext{ ms}$ | Gateway is saturated | CAKE internal qdisc handles tin prioritization; do not drop bandwidth |
-| **EXTERNAL_CONGESTION** | $> 25	ext{ ms}$ | $< 1	ext{ ms}$ | **Modem bufferbloat!** Upstream bottleneck dropped | **Execute FAST STEP-DOWN** |
-| **FAST_STEP_DOWN** | Active for $T_{	ext{settle}}$ | N/A | Draining modem buffer | Set $C_{	ext{target}} = 0.90 	imes C_{	ext{estimated}}$ |
+| **NORMAL** | $< 15\text{ ms}$ | $< 1\text{ ms}$ | Network healthy | Hold current shaped bandwidth |
+| **PROBE_UP** | $< 15\text{ ms}$ for 10 ticks | $< 1\text{ ms}$ | Unused headroom | Increase rate by $+1.0\text{ Mbps}$ |
+| **INTERNAL_CONGESTION** | $> 25\text{ ms}$ | $> 5\text{ ms}$ | Gateway is saturated | CAKE internal qdisc handles tin prioritization; do not drop bandwidth |
+| **EXTERNAL_CONGESTION** | $> 25\text{ ms}$ | $< 1\text{ ms}$ | **Modem bufferbloat!** Upstream bottleneck dropped | **Execute FAST STEP-DOWN** |
+| **FAST_STEP_DOWN** | Active for $T_{\text{settle}}$ | N/A | Draining modem buffer | Set $C_{\text{target}} = 0.90 \times C_{\text{estimated}}$ |
 
 **Drain Time & Settling Formula:**
-When the link collapses from $C_{	ext{nominal}} = 100	ext{ Mbps}$ to $C_{	ext{collapsed}} = 20	ext{ Mbps}$, the modem buffer ($	ext{BUF} = 256	ext{ KB}$) is full.
-By stepping down to $C_{	ext{target}} = 0.90 	imes 20 = 18	ext{ Mbps}$, the drain rate from the modem is:
-$$	ext{Drain Rate} = C_{	ext{collapsed}} - C_{	ext{target}} = 20 - 18 = 2	ext{ Mbps} = 250{,}000	ext{ bytes/sec}$$
-$$	ext{Drain Time } (T_{	ext{drain}}) = rac{256 	imes 1024	ext{ bytes}}{250{,}000	ext{ bytes/sec}} = 1.048	ext{ seconds}$$
-Add filter latency and probe interval ($\sim 0.6	ext{ s}$), and total settling time is:
-$$T_{	ext{settle}} pprox 1.05 + 0.60 = \mathbf{1.65	ext{ seconds}}$$
-*Empirical measurement in our simulator: **$1.642	ext{ seconds}$**!*
+When the link collapses from $C_{\text{nominal}} = 100\text{ Mbps}$ to $C_{\text{collapsed}} = 20\text{ Mbps}$, the modem buffer ($\text{BUF} = 256\text{ KB}$) is full.
+By stepping down to $C_{\text{target}} = 0.90 \times 20 = 18\text{ Mbps}$, the drain rate from the modem is:
+$$\text{Drain Rate} = C_{\text{collapsed}} - C_{\text{target}} = 20 - 18 = 2\text{ Mbps} = 250{,}000\text{ bytes/sec}$$
+$$\text{Drain Time } (T_{\text{drain}}) = \frac{256 \times 1024\text{ bytes}}{250{,}000\text{ bytes/sec}} = 1.048\text{ seconds}$$
+Add filter latency and probe interval ($\sim 0.6\text{ s}$), and total settling time is:
+$$T_{\text{settle}} \approx 1.05 + 0.60 = \mathbf{1.65\text{ seconds}}$$
+*Empirical measurement in our simulator: **$1.642\text{ seconds}$**!*
 
 ### 3.8 Packet Scheduler: Linux CAKE (`tc-cake diffserv4`)
 * Implemented in Linux kernel 4.19+.
@@ -294,32 +294,32 @@ $$T_{	ext{settle}} pprox 1.05 + 0.60 = \mathbf{1.65	ext{ seconds}}$$
 7. `model.py` runs CART tree: Leaf 4 evaluates True $\implies$ Verdict: **VOICE** (Confidence = 0.998).
 8. `actuator.py` executes: `nft add element ip edgeqos voice_flows { 192.168.1.50 . 5004 }`.
 9. The kernel tags the flow with DSCP `EF` (0x2e).
-10. All subsequent packets route directly into **CAKE Tin 0 (Voice)**. Voice latency drops to **$20.24	ext{ ms}$**; jitter is **$0.082	ext{ ms}$**.
+10. All subsequent packets route directly into **CAKE Tin 0 (Voice)**. Voice latency drops to **$20.24\text{ ms}$**; jitter is **$0.082\text{ ms}$**.
 
 #### Scenario B: Rogue BitTorrent Traffic Disguised as VoIP
 1. Rogue client crafts UDP packets on port 5060 with 100-byte headers, blasting at 50 Mbps.
 2. Initial 5 packets trick the early classifier into marking the flow as Voice.
 3. Flow enters Tin 0.
-4. At $t = 250	ext{ ms}$, `guard.py` inspects `conntrack`: the flow consumed $1{,}562{,}500	ext{ bytes}$ (Budget is 8,000 bytes). Deficit counter increments.
-5. At $t = 1.00	ext{ s}$ (4 consecutive deficit violations), the guard executes **Immediate Demotion**:
+4. At $t = 250\text{ ms}$, `guard.py` inspects `conntrack`: the flow consumed $1{,}562{,}500\text{ bytes}$ (Budget is 8,000 bytes). Deficit counter increments.
+5. At $t = 1.00\text{ s}$ (4 consecutive deficit violations), the guard executes **Immediate Demotion**:
    * Flushes flow from `voice_flows` set.
    * Inserts flow into `bulk_flows` set.
    * Modifies connection mark to `0x40` (DSCP `CS1` - Bulk).
 6. Flow is trapped in **CAKE Tin 3 (Bulk)**. Legitimate Zoom audio is instantly freed from contention.
 
-#### Scenario C: Severe ISP Capacity Collapse (100 Mbps $	o$ 20 Mbps)
+#### Scenario C: Severe ISP Capacity Collapse (100 Mbps $\to$ 20 Mbps)
 1. Heavy 95 Mbps bulk traffic is active. Suddenly, upstream ISP line drops to 20 Mbps.
 2. Unmanaged modem buffer (256 KB) begins to fill. Voice latency balloons toward 160 ms.
-3. At $t = 200	ext{ ms}$, `capacity.py` samples telemetry:
-   * External delay $\Delta D_{	ext{ext}} = 105.4	ext{ ms}$ (Threshold $> 25	ext{ ms}$ triggered).
-   * Local Voice queue backlog $q_{	ext{internal}} = 0	ext{ pkts} / 0	ext{ ms}$ (Threshold $< 1	ext{ ms}$ holds).
+3. At $t = 200\text{ ms}$, `capacity.py` samples telemetry:
+   * External delay $\Delta D_{\text{ext}} = 105.4\text{ ms}$ (Threshold $> 25\text{ ms}$ triggered).
+   * Local Voice queue backlog $q_{\text{internal}} = 0\text{ pkts} / 0\text{ ms}$ (Threshold $< 1\text{ ms}$ holds).
 4. Diagnosis: **EXTERNAL MODEM BUFFERBLOAT**.
 5. Controller fires **Fast Step-Down**:
    * Instantly changes CAKE shaper bandwidth on `eth0` from 95 Mbps to:
-     $$C_{	ext{target}} = 0.90 	imes 20	ext{ Mbps} = 18.0	ext{ Mbps}$$
-6. Because the gateway now transmits at 18 Mbps into a 20 Mbps pipe, the modem buffer begins draining at 2 Mbps ($250	ext{ KB/s}$).
-7. In **$1.05	ext{ seconds}$**, the modem buffer is completely empty.
-8. At $t = 1.64	ext{ s}$, voice latency drops from 125 ms back to **$21.91	ext{ ms}$**.
+     $$C_{\text{target}} = 0.90 \times 20\text{ Mbps} = 18.0\text{ Mbps}$$
+6. Because the gateway now transmits at 18 Mbps into a 20 Mbps pipe, the modem buffer begins draining at 2 Mbps ($250\text{ KB/s}$).
+7. In **$1.05\text{ seconds}$**, the modem buffer is completely empty.
+8. At $t = 1.64\text{ s}$, voice latency drops from 125 ms back to **$21.91\text{ ms}$**.
 
 ---
 
@@ -339,7 +339,7 @@ An ablation study systematically removes one feature at a time to prove every co
 2. **Ablation 2: Remove ML Classifier (Use Static Port Rules - B1):**
    * Modern Zoom/Teams traffic over dynamic ports is misclassified as Best Effort (`CS0`). Latency rises under heavy video loads.
 3. **Ablation 3: Remove Dynamic Capacity Controller (Static CAKE - B4):**
-   * When capacity drops from 100M to 20M, static CAKE pushes 95M into a 20M pipe. Bufferbloat traps packets in the modem. Latency stays locked at **125.12 ms** forever ($T_{	ext{settle}} = \infty$).
+   * When capacity drops from 100M to 20M, static CAKE pushes 95M into a 20M pipe. Bufferbloat traps packets in the modem. Latency stays locked at **125.12 ms** forever ($T_{\text{settle}} = \infty$).
 4. **Ablation 4: Remove Behavioral Rate Guard (Unguarded ML - S2):**
    * Rogue 50 Mbps bulk flow mimics voice packet size. Voice tin is overwhelmed. Voice latency rises to **142.30 ms**.
 5. **Full System (EdgeQoS - S3):**
@@ -351,17 +351,17 @@ An ablation study systematically removes one feature at a time to prove every co
 
 | Metric / Scenario | Baseline (Without EdgeQoS)<br>`B0` (FIFO) / `B4` (Stale CAKE) / `B5` (Autorate) | E1 Actual Result<br>*(Measured on Linux PC Testbed)* | E2 Expected Result<br>*(Target on Physical Pi 4B)* | Net Improvement Factor |
 | :--- | :---: | :---: | :---: | :---: |
-| **Steady-State Voice Latency ($p_{50}$)** *(100 Mbps link with bulk load)* | `B0`: $20.36	ext{ ms}$<br>`B3`: $20.21	ext{ ms}$ | **$20.24	ext{ ms}$** | **$\le 20.50	ext{ ms}$** | Baseline wire-speed preservation |
-| **Steady-State Voice Jitter** | `B0`: $0.081	ext{ ms}$<br>`B1`: $0.085	ext{ ms}$ | **$0.082	ext{ ms}$** | **$\le 0.150	ext{ ms}$** | ITU-T G.114 compliant ($< 1	ext{ ms}$) |
-| **Capacity Collapse Voice Latency ($p_{50}$)** *(100M $	o$ 20M drop)* | **`B0`: $160.67	ext{ ms}$**<br>**`B4`: $125.12	ext{ ms}$**<br>`B5`: $\sim 48.00	ext{ ms}$ | **$21.91	ext{ ms}$** | **$\le 24.50	ext{ ms}$** | **$86.4\%$ latency reduction** vs B0<br>**$82.5\%$ latency reduction** vs B4 |
-| **Capacity Collapse Voice Latency ($p_{99}$)** | **`B0`: $160.98	ext{ ms}$**<br>**`B4`: $125.48	ext{ ms}$** | **$72.99	ext{ ms}$** *(transient)*<br>**$22.10	ext{ ms}$** *(steady)* | **$\le 78.00	ext{ ms}$** *(transient)*<br>**$\le 25.00	ext{ ms}$** *(steady)* | **$82.4\%$ reduction** in worst-case spike |
-| **Settling Time ($T_{	ext{settle}}$)** *(Recovery time after capacity drop)* | **`B0`: $\infty$ (Never recovers)**<br>**`B4`: $\infty$ (Trapped in buffer)**<br>`B5`: $6.80	ext{ s}$ | **$1.64	ext{ seconds}$** | **$1.60	ext{ s} - 1.85	ext{ s}$** | **$4.1	imes$ faster recovery** than `cake-autorate` |
-| **Rogue Bulk Demotion Time** *(50M masquerading torrent)* | **`B0`/`B1`: $\infty$ (No defense)**<br>`S2`: $\infty$ (Unguarded ML fails) | **$1.00	ext{ second}$** | **$\le 1.25	ext{ seconds}$** | Instant threat containment; zero buffer starvation |
-| **ML Inference Latency ($p_{50}$)** | Generic Deep Learning: $15 - 50	ext{ ms}$ | **$0.751\,\mu	ext{s}$ ($0.00075	ext{ ms}$)** | **$\le 2.50\,\mu	ext{s}$** | **$> 10{,}000	imes$ faster** than neural networks |
-| **ML Inference Latency ($p_{99}$)** | Generic Deep Learning: $> 100	ext{ ms}$ | **$1.623\,\mu	ext{s}$** | **$\le 5.00\,\mu	ext{s}$** | Hard real-time bound guaranteed |
-| **Zero-DPI Privacy Invariant** | DPI: Full payload leaked | **$0	ext{ bytes}$ (Verified)** | **$0	ext{ bytes}$** | Mathematically guaranteed by snaplen 40 |
+| **Steady-State Voice Latency ($p_{50}$)** *(100 Mbps link with bulk load)* | `B0`: $20.36\text{ ms}$<br>`B3`: $20.21\text{ ms}$ | **$20.24\text{ ms}$** | **$\le 20.50\text{ ms}$** | Baseline wire-speed preservation |
+| **Steady-State Voice Jitter** | `B0`: $0.081\text{ ms}$<br>`B1`: $0.085\text{ ms}$ | **$0.082\text{ ms}$** | **$\le 0.150\text{ ms}$** | ITU-T G.114 compliant ($< 1\text{ ms}$) |
+| **Capacity Collapse Voice Latency ($p_{50}$)** *(100M $\to$ 20M drop)* | **`B0`: $160.67\text{ ms}$**<br>**`B4`: $125.12\text{ ms}$**<br>`B5`: $\sim 48.00\text{ ms}$ | **$21.91\text{ ms}$** | **$\le 24.50\text{ ms}$** | **$86.4\%$ latency reduction** vs B0<br>**$82.5\%$ latency reduction** vs B4 |
+| **Capacity Collapse Voice Latency ($p_{99}$)** | **`B0`: $160.98\text{ ms}$**<br>**`B4`: $125.48\text{ ms}$** | **$72.99\text{ ms}$** *(transient)*<br>**$22.10\text{ ms}$** *(steady)* | **$\le 78.00\text{ ms}$** *(transient)*<br>**$\le 25.00\text{ ms}$** *(steady)* | **$82.4\%$ reduction** in worst-case spike |
+| **Settling Time ($T_{\text{settle}}$)** *(Recovery time after capacity drop)* | **`B0`: $\infty$ (Never recovers)**<br>**`B4`: $\infty$ (Trapped in buffer)**<br>`B5`: $6.80\text{ s}$ | **$1.64\text{ seconds}$** | **$1.60\text{ s} - 1.85\text{ s}$** | **$4.1\times$ faster recovery** than `cake-autorate` |
+| **Rogue Bulk Demotion Time** *(50M masquerading torrent)* | **`B0`/`B1`: $\infty$ (No defense)**<br>`S2`: $\infty$ (Unguarded ML fails) | **$1.00\text{ second}$** | **$\le 1.25\text{ seconds}$** | Instant threat containment; zero buffer starvation |
+| **ML Inference Latency ($p_{50}$)** | Generic Deep Learning: $15 - 50\text{ ms}$ | **$0.751\,\mu\text{s}$ ($0.00075\text{ ms}$)** | **$\le 2.50\,\mu\text{s}$** | **$> 10{,}000\times$ faster** than neural networks |
+| **ML Inference Latency ($p_{99}$)** | Generic Deep Learning: $> 100\text{ ms}$ | **$1.623\,\mu\text{s}$** | **$\le 5.00\,\mu\text{s}$** | Hard real-time bound guaranteed |
+| **Zero-DPI Privacy Invariant** | DPI: Full payload leaked | **$0\text{ bytes}$ (Verified)** | **$0\text{ bytes}$** | Mathematically guaranteed by snaplen 40 |
 | **Gateway CPU Utilization** | N/A | **$< 2.1\%$ (x86_64)** | **$\le 12.0\%$ (Pi 4B 1-Core)** | $> 88\%$ CPU headroom for routing & Wi-Fi |
-| **Resident Memory (RSS)** | N/A | **$14.2	ext{ MB}$** | **$\le 25.0	ext{ MB}$** | Negligible footprint on 2GB/4GB Pi |
+| **Resident Memory (RSS)** | N/A | **$14.2\text{ MB}$** | **$\le 25.0\text{ MB}$** | Negligible footprint on 2GB/4GB Pi |
 
 ---
 
@@ -435,8 +435,8 @@ Here are the toughest, most aggressive questions a senior network architect or j
 ### Q2: "Why did you build a decision tree instead of a Convolutional Neural Network (CNN) or LSTM?"
 > **Your Answer:**  
 > "Three uncompromising engineering reasons:
-> 1. **Decision Latency:** In our empirical micro-benchmarks across 10,000 iterations, our CART tree executes in **$0.751\,\mu	ext{s}$ (p50)** and **$1.623\,\mu	ext{s}$ (p99)**. A CNN or LSTM requires tensor transformations, batching, and matrix multiplications taking $15 - 50	ext{ ms}$. Waiting 50 ms to classify the first 5 packets defeats the entire purpose of early classification!
-> 2. **Zero Dependencies on Embedded Hardware:** Neural networks require Python runtimes with `torch` or `onnxruntime` ($> 200	ext{ MB}$ binaries). Our CART model compiles down to a **1.7 KB pure JSON array** that runs in native Python without a single third-party library.
+> 1. **Decision Latency:** In our empirical micro-benchmarks across 10,000 iterations, our CART tree executes in **$0.751\,\mu\text{s}$ (p50)** and **$1.623\,\mu\text{s}$ (p99)**. A CNN or LSTM requires tensor transformations, batching, and matrix multiplications taking $15 - 50\text{ ms}$. Waiting 50 ms to classify the first 5 packets defeats the entire purpose of early classification!
+> 2. **Zero Dependencies on Embedded Hardware:** Neural networks require Python runtimes with `torch` or `onnxruntime` ($> 200\text{ MB}$ binaries). Our CART model compiles down to a **1.7 KB pure JSON array** that runs in native Python without a single third-party library.
 > 3. **Explainability & Verification:** A decision tree allows us to inspect every branch threshold directly. Juries and network operators can audit the exact rules governing why a flow was promoted or demoted."
 
 ---
@@ -445,7 +445,7 @@ Here are the toughest, most aggressive questions a senior network architect or j
 > **Your Answer:**  
 > "That is precisely why we do **not** rely on the ML classifier alone!
 > * If a VPN client pads packets or a user runs Tor, the classifier will simply categorize it as Best Effort (`CS0`), which is the safe default.
-> * If an adversary artificially manipulates packet sizes to impersonate VoIP to steal priority, our **Behavioral Rate Guard** monitors the actual flow dynamics at 4 Hz. Because VoIP codecs (Opus, G.711) have physical bandwidth ceilings ($\le 160	ext{ kbps}$), any flow exceeding 256 kbps is demoted to Bulk in **1.00 second**.
+> * If an adversary artificially manipulates packet sizes to impersonate VoIP to steal priority, our **Behavioral Rate Guard** monitors the actual flow dynamics at 4 Hz. Because VoIP codecs (Opus, G.711) have physical bandwidth ceilings ($\le 160\text{ kbps}$), any flow exceeding 256 kbps is demoted to Bulk in **1.00 second**.
 > * Thus, even if early classification is spoofed, the behavioral guard guarantees that no rogue flow can compromise the Voice tin."
 
 ---
@@ -455,7 +455,7 @@ Here are the toughest, most aggressive questions a senior network architect or j
 > "Because 40 bytes is the exact mathematical boundary for Zero-DPI in IPv4:
 > * Standard IPv4 header = 20 bytes.
 > * Standard TCP header (or UDP header) = 20 bytes (UDP is 8 bytes).
-> * $20 + 20 = 40	ext{ bytes}$.
+> * $20 + 20 = 40\text{ bytes}$.
 > If we captured 54 or 64 bytes, the first 14 to 24 bytes of the application payload would be copied into userspace memory. In unencrypted HTTP or plain RTP audio, that would leak URLs or voice data. By setting `snaplen 40` at the kernel level, the kernel physically drops the payload before copying the buffer to userspace. Zero leakage is mathematically enforced."
 
 ---
@@ -475,10 +475,10 @@ Here are the toughest, most aggressive questions a senior network architect or j
 > **Your Answer:**  
 > "We implement asymmetric hysteresis latches:
 > 1. **Fast Step-Down, Slow Additive Step-Up:**
->    * Step-down is multiplicative and immediate: $C_{	ext{target}} = 0.90 	imes C_{	ext{est}}$.
->    * Step-up is conservative and additive: $+1.0	ext{ Mbps}$ only after 10 consecutive ticks ($2.0	ext{ seconds}$) of clean, low-delay operation.
+>    * Step-down is multiplicative and immediate: $C_{\text{target}} = 0.90 \times C_{\text{est}}$.
+>    * Step-up is conservative and additive: $+1.0\text{ Mbps}$ only after 10 consecutive ticks ($2.0\text{ seconds}$) of clean, low-delay operation.
 > 2. **Hysteresis Deadband:**
->    * Delay triggers require $\Delta D_{	ext{ext}} > 25	ext{ ms}$ to trigger congestion, but must fall below $15	ext{ ms}$ before stepping up. This 10 ms deadband eliminates boundary oscillation."
+>    * Delay triggers require $\Delta D_{\text{ext}} > 25\text{ ms}$ to trigger congestion, but must fall below $15\text{ ms}$ before stepping up. This 10 ms deadband eliminates boundary oscillation."
 
 ---
 
@@ -494,7 +494,7 @@ Here are the toughest, most aggressive questions a senior network architect or j
 > **Your Answer:**  
 > "CAKE offers three diffserv modes: `diffserv3` (Bulk, BestEffort, Voice), `diffserv4` (Bulk, BestEffort, Video, Voice), and `diffserv8`.
 > * `diffserv3` combines Video and Voice into a single tin. A 4K video stream or high-bandwidth video call will increase queuing delay for latency-critical audio packets.
-> * `diffserv8` creates too many sparse queues on low-bandwidth residential links ($< 50	ext{ Mbps}$), leading to buffer starvation.
+> * `diffserv8` creates too many sparse queues on low-bandwidth residential links ($< 50\text{ Mbps}$), leading to buffer starvation.
 > * `diffserv4` is the Goldilocks balance: it strictly isolates latency-critical audio (Tin 0: Voice) from bandwidth-heavy video (Tin 1: Video), while isolating background downloads (Tin 3: Bulk) from regular web traffic (Tin 2: Best Effort)."
 
 ---
@@ -503,15 +503,15 @@ Here are the toughest, most aggressive questions a senior network architect or j
 > **Your Answer:**  
 > "No, because the guard uses a **sliding deficit counter**, not an instantaneous threshold.
 > In a 250 ms window, the total allowable byte budget is 8,000 bytes. A 10 Mbps pulse lasting 100 ms transmits:
-> $$rac{10 	imes 10^6 	imes 0.10}{8} = 125{,}000	ext{ bytes}$$
-> This is $15.6	imes$ the allowable budget! The deficit counter immediately accumulates the excess. Even if the flow stays quiet for the remaining 150 ms, the deficit persists into subsequent windows, triggering immediate demotion."
+> $$\frac{10 \times 10^6 \times 0.10}{8} = 125{,}000\text{ bytes}$$
+> This is $15.6\times$ the allowable budget! The deficit counter immediately accumulates the excess. Even if the flow stays quiet for the remaining 150 ms, the deficit persists into subsequent windows, triggering immediate demotion."
 
 ---
 
 ## 9. Summary for the Candidate
 
 When presenting to the Tata Elxsi jury:
-1. **Be Confident in the Math:** You have exact mathematical proofs for bufferbloat ($T = 	ext{BUF}/C$), demotion bounds ($T_{	ext{demote}} \le 1.25	ext{ s}$), and drain settling times ($T_{	ext{drain}} = 1.05	ext{ s}$).
+1. **Be Confident in the Math:** You have exact mathematical proofs for bufferbloat ($T = \text{BUF}/C$), demotion bounds ($T_{\text{demote}} \le 1.25\text{ s}$), and drain settling times ($T_{\text{drain}} = 1.05\text{ s}$).
 2. **Emphasize Zero-DPI:** Zero-DPI with `snaplen 40` is your strongest privacy and regulatory selling point.
 3. **Highlight Zero Fake Numbers:** Everything in this report is backed by unit tests, JSON benchmark outputs in `results/`, and clean C/Python code in the repository.
 
