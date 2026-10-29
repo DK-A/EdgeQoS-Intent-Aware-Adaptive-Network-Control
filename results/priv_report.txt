@@ -1,0 +1,9 @@
+Test T-PRIV Execution Report:
+==============================
+Input Packet Total Length: 72 bytes
+Secret Payload Size: 44 bytes
+Kernel Snaplen Limit: 40 bytes
+Parsed Record Header Size: 28 bytes
+Secret Marker Detected in Parsed Record: False (Zero Leakage)
+Extracted Metadata: Proto=17, TotalLen=72, Ports=5060->5060
+Status: PASS (Privacy Invariant Verified)
