@@ -1,0 +1,59 @@
+{
+  "SC1": {
+    "B0 (DropTail FIFO)": {
+      "p50_ms": 20.35929323021646,
+      "p95_ms": 20.47424058292968,
+      "p99_ms": 20.49632740274543,
+      "jitter_ms": 0.08100347451829107,
+      "bulk_goodput_mbps": 94.9992,
+      "drops": 0
+    },
+    "B1 (Static Port PRIO)": {
+      "p50_ms": 20.354976764272227,
+      "p95_ms": 20.48570608670297,
+      "p99_ms": 20.507078432151715,
+      "jitter_ms": 0.08533132954646444,
+      "bulk_goodput_mbps": 95.0004,
+      "drops": 0
+    },
+    "B3 (Static CAKE 95M)": {
+      "p50_ms": 20.21537001449847,
+      "p95_ms": 20.272825300986064,
+      "p99_ms": 20.276703664079854,
+      "jitter_ms": 0.0419796178069685,
+      "bulk_goodput_mbps": 95.0004,
+      "drops": 0
+    },
+    "S3 (EdgeQoS Guarded)": {
+      "p50_ms": 20.236378584246317,
+      "p95_ms": 20.360178890215685,
+      "p99_ms": 20.38064753681912,
+      "jitter_ms": 0.08270385115644334,
+      "bulk_goodput_mbps": 95.0004,
+      "drops": 0
+    }
+  },
+  "SC2": {
+    "B0 (DropTail FIFO)": {
+      "transient_peak_rtt_ms": 161.00760260054693,
+      "steady_p50_ms": 160.6716049771677,
+      "steady_p95_ms": 160.9306861432044,
+      "steady_p99_ms": 160.9774457642596,
+      "settling_time_sec": "> 9.0s (Never Settled)"
+    },
+    "B4 (Stale CAKE 95M on 20M Link)": {
+      "transient_peak_rtt_ms": 125.50079538470004,
+      "steady_p50_ms": 125.11550221618783,
+      "steady_p95_ms": 125.41661512980458,
+      "steady_p99_ms": 125.47571495180864,
+      "settling_time_sec": "> 9.0s (Never Settled)"
+    },
+    "S3 (EdgeQoS Guarded)": {
+      "transient_peak_rtt_ms": 125.45906027969345,
+      "steady_p50_ms": 21.908352244901508,
+      "steady_p95_ms": 62.249158124450666,
+      "steady_p99_ms": 72.99477041073635,
+      "settling_time_sec": 1.6421173728961618
+    }
+  }
+}

@@ -93,18 +93,26 @@ class NetworkSimulator:
 
                     # Capacity controller tick (every 200ms)
                     if int(round(now * 100)) % 20 == 0:
-                        int_delay = (self.gw_q.backlog_bytes() * 8.0 / max(1.0, self.link_rate_bps)) * 1000.0
+                        # Report Table III: Internal Delay is measured on the Latency-Sensitive (Voice) tin
+                        if isinstance(self.gw_q, CAKEDiffserv4Queue):
+                            voice_bytes = sum(sum(p.size_bytes for p in q) for q in self.gw_q.tins[CAKEDiffserv4Queue.TIN_VOICE].values())
+                            int_delay = (voice_bytes * 8.0 / max(1.0, self.link_rate_bps)) * 1000.0
+                        else:
+                            int_delay = (self.gw_q.backlog_bytes() * 8.0 / max(1.0, self.link_rate_bps)) * 1000.0
                         recent_rtts = [p.rtt_ms for p in self.completed_packets[-20:] if p.traffic_class == "Realtime"]
                         base_rtt = 2.0 * self.base_prop_delay * 1000.0
                         current_ext_delta = max(0.0, (sum(recent_rtts) / len(recent_rtts)) - base_rtt) if recent_rtts else 0.0
 
+                        # Offered rate is traffic arriving from LAN into gateway
+                        offered_bps = (sum(self.flow_byte_counters.values()) * 8.0 / max(1.0, now))
+                        delivered_rate = self.link_rate_bps if current_ext_delta > 15 else 100e6
                         res = self.capacity_ctrl.step(
                             now=now,
                             int_delay_ms=int_delay,
                             ext_delay_delta_ms=current_ext_delta,
-                            offered_rate_bps=self.link_rate_bps,
-                            rx_delivered_bps=self.link_rate_bps if current_ext_delta > 15 else 100e6,
-                            active_flows=len(self.flow_dscp_map)
+                            offered_rate_bps=offered_bps,
+                            rx_delivered_bps=delivered_rate,
+                            active_flows=max(1, len(self.flow_byte_counters))
                         )
                         if isinstance(self.gw_q, CAKEDiffserv4Queue):
                             self.gw_q.shaper_rate_bps = res["rate_bps"]
