@@ -12,18 +12,18 @@
 ---
 
 ## 📑 Table of Contents
-- [Executive Overview & Problem Statement](#-executive-overview--problem-statement)
-- [System Architecture & Workflow](#-system-architecture--workflow)
-- [Core Technical Novelties](#-core-technical-novelties)
-- [Architectural Tradeoff Analysis](#-architectural-tradeoff-analysis)
-- [Taxonomy & Notation Guide (Baselines, Solutions, Scenarios)](#-taxonomy--notation-guide)
-- [Master Empirical Performance Evaluation](#-master-empirical-performance-evaluation)
-- [Visual Benchmark Results Gallery](#-visual-benchmark-results-gallery)
-- [Zero-DPI Privacy Invariant (0-Byte Leakage)](#-zero-dpi-privacy-invariant)
-- [Live Network Operations Console (NOC Dashboard)](#-live-network-operations-console)
-- [Step-by-Step Reproduction Guide](#-step-by-step-reproduction-guide)
-- [Engineering Team & Responsibilities](#-engineering-team--responsibilities)
-- [Repository Structure](#-repository-structure)
+1. [Executive Overview & Problem Statement](#-executive-overview--problem-statement)
+2. [System Architecture & Workflow](#-system-architecture--workflow)
+3. [Core Technical Novelties](#-core-technical-novelties)
+4. [Architectural Tradeoff Analysis](#-architectural-tradeoff-analysis)
+5. [Taxonomy & Notation Guide (Baselines, Solutions, Scenarios)](#-taxonomy--notation-guide)
+6. [Master Empirical Performance Evaluation](#-master-empirical-performance-evaluation)
+7. [Comprehensive Visual Results Gallery](#-comprehensive-visual-results-gallery)
+8. [Zero-DPI Privacy Invariant (0-Byte Leakage)](#-zero-dpi-privacy-invariant)
+9. [Live Network Operations Console (NOC Dashboard)](#-live-network-operations-console)
+10. [Step-by-Step Reproduction Guide](#-step-by-step-reproduction-guide)
+11. [Engineering Team & Specializations](#-engineering-team--specializations)
+12. [Repository Structure](#-repository-structure)
 
 ---
 
@@ -91,8 +91,6 @@ EdgeQoS divides duties strictly between **Userspace Intelligence (Control Plane)
 
 ## ⚖️ Architectural Tradeoff Analysis
 
-Designing for resource-constrained broadband gateways (such as the quad-core ARM Cortex-A72 on a Raspberry Pi 4B) demands uncompromising engineering discipline. The table below details why EdgeQoS selected its architectural components:
-
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                               ARCHITECTURAL DECISION & TRADEOFF MATRIX                                 │
@@ -157,23 +155,51 @@ The table below presents verified empirical results measured across all four val
 
 ---
 
-## 📈 Visual Benchmark Results Gallery
+## 📈 Comprehensive Visual Results Gallery
 
-### 1. Capacity Collapse Recovery & Settling Time
-When bandwidth drops from 100 Mbps to 20 Mbps at $t=5.0\text{s}$, unmanaged FIFO ($B_0$) explodes into persistent bufferbloat ($160\text{ ms}$). Stale CAKE ($B_4$) remains bloated ($125\text{ ms}$). EdgeQoS ($S_3$) detects the collapse, steps down shaping rate to 18 Mbps, and drains the standing queue within **1.64 seconds**, restoring latency to **20.50 ms**.
+### 1. Capacity Collapse Recovery & Settling Time Dynamics
+Demonstrates real-time latency recovery during the 100 Mbps $\to$ 20 Mbps link collapse at $t=5.0\text{s}$. Unmanaged FIFO ($B_0$) immediately explodes into $160\text{ ms}$ persistent bufferbloat. Stale CAKE ($B_4$) remains bloated at $125\text{ ms}$. EdgeQoS ($S_3$) detects the collapse, steps down shaping rate to 18 Mbps, and drains the standing queue within **1.64 seconds**, restoring latency to **20.50 ms**.
 
 ![Capacity Collapse Recovery](results/settling_time_ci.png)
 
 ---
 
-### 2. Theoretical vs. Measured Bufferbloat Delay
-Validates the theoretical bufferbloat formula ($\text{Delay} = \frac{\text{Buffer}}{\text{Capacity}} + \text{Base RTT}$) across varying buffer sizes (64 KB to 2048 KB). Measured kernel latency closely matches theoretical curves within $0.85\text{ ms}$.
+### 2. Tail Latency & Bufferbloat Comparison ($B_0$ vs $B_4$ vs $S_3$)
+Direct comparison of median ($p50$) and 99th percentile ($p99$) latency during sustained bottleneck collapse. EdgeQoS cuts latency from $124.00\text{ ms}$ down to **$20.50\text{ ms}$** (**83.5% reduction**), maintaining rock-solid latency bounds below the $25\text{ ms}$ target.
+
+![Latency Comparison Bar](results/latency_comparison_bar.png)
+
+---
+
+### 3. Stage S2: Empirical Kernel CAKE Multi-Tin Steering
+Verifies hardware flow steering directly inside the Linux 6.8 kernel (`tc-cake diffserv4`). Transmitting 50 packets for each traffic class proves independent tin counter increments: VoIP (100B) steers to **Tin 3 (Voice EF)**, Video (800B) to **Tin 2 (Video AF41)**, and Bulk downloads to **Tin 0 (Bulk CS1)** with zero configuration.
+
+![Multi-Tin Flow Steering](results/tin_steering_distribution.png)
+
+---
+
+### 4. Edge ML Inference Speed vs. Deep Learning Alternatives
+Logarithmic comparison of model execution time on gateway hardware. While deep neural networks (CNN, Bi-LSTM, MiniLM) require $18\text{--}45\text{ ms}$ per inference, EdgeQoS evaluates in **$0.741\ \mu\text{s}$** (well within the $100\ \mu\text{s}$ gateway deadline), enabling line-rate flow classification with negligible CPU load.
+
+![Model Latency Comparison](results/model_latency_comparison.png)
+
+---
+
+### 5. Theoretical vs. Measured Bufferbloat Standing Delay
+Validates the theoretical bufferbloat formula ($\text{Delay} = \frac{\text{Buffer}}{\text{Capacity}} + \text{Base RTT}$) across varying buffer sizes (64 KB to 2048 KB). Real Linux kernel namespace measurements match the theoretical curve within $0.85\text{ ms}$.
 
 ![Bufferbloat Delay vs Theory](results/b0_vs_theory.png)
 
 ---
 
-### 3. Behavioral Guard Demotion Latency CDF
+### 6. TinyML Classifier Confusion Matrix & Precision
+Evaluates early-flow classification accuracy across 2,400 test samples (600 per traffic class). The Decision Tree model achieves **100.0% accuracy** and a **Macro F1 Score of 1.000**, with an Expected Calibration Error (ECE) of **0.000**.
+
+![Confusion Matrix](results/confusion_matrix.png)
+
+---
+
+### 7. Behavioral Guard Demotion Latency CDF
 Demonstrates rogue flow mitigation ($SC_6$). When an aggressive 50 Mbps bulk transfer spoofs Voice EF DSCP markings, EdgeQoS's behavioral monitor detects the throughput anomaly and demotes the flow to Bulk Tin 0 in $\le 1.25\text{ seconds}$ ($p99 = 1.10\text{s}$).
 
 ![Behavioral Guard Demotion CDF](results/demotion_cdf.png)
@@ -257,13 +283,13 @@ sudo bash scripts/run_all_prepi_stages.sh
 
 ---
 
-## 👥 Engineering Team & Responsibilities
+## 👥 Engineering Team & Specializations
 
 Developed by a dedicated 2-member systems engineering team for the **Tata Elxsi TELIPORT Season 4 Hackathon** (Problem Statement 3: Media & Communications Vertical):
 
 | Role / Specialization | Core Responsibilities & Contributions |
 | :--- | :--- |
-| **Systems & Linux Data Plane Lead** | Linux kernel queue disciplines (`tc-cake diffserv4`), `nftables` Zero-DPI packet truncation, C netlink ring buffer reader (`reader.c`), network namespace orchestration (`c1`, `gw`, `isp`, `srv`), and capacity collapse benchmarks. |
+| **Systems & Linux Data Plane Lead** | Linux kernel queue disciplines (`tc-cake diffserv4`), `nftables` Zero-DPI packet truncation, C netlink ring buffer reader (`reader.c`), network namespace testbed orchestration (`c1`, `gw`, `isp`, `srv`), and capacity collapse benchmarks. |
 | **ML & Edge Infrastructure Lead** | Statistical early-flow feature extraction, Decision Tree compression & microsecond benchmarking ($0.741\ \mu\text{s}$), dynamic bandwidth guardrails with latched hysteresis, and NOC telemetry dashboard. |
 
 ---
@@ -273,6 +299,8 @@ Developed by a dedicated 2-member systems engineering team for the **Tata Elxsi 
 ```
 .
 ├── analysis/               # Pillow & SVG zero-dependency plot generation scripts
+│   ├── generate_extended_plots.py
+│   └── plots.py
 ├── controller/             # Dynamic rate controller and capacity guardrails
 ├── dataplane/              # nftables Zero-DPI ingress definitions (snaplen 28/40)
 │   └── edgeqos.nft
@@ -292,13 +320,17 @@ Developed by a dedicated 2-member systems engineering team for the **Tata Elxsi 
 │   └── reader.c
 ├── results/                # Raw empirical benchmark logs, JSON telemetry, and plot figures
 │   ├── b0_vs_theory.png
+│   ├── confusion_matrix.png
 │   ├── demotion_cdf.png
 │   ├── inference_bench.json
+│   ├── latency_comparison_bar.png
+│   ├── model_latency_comparison.png
 │   ├── netns_collapse_result.json
 │   ├── netns_real_benchmark.json
 │   ├── priv_report.txt
 │   ├── settling_time_ci.png
-│   └── stage_s2_trace.json
+│   ├── stage_s2_trace.json
+│   └── tin_steering_distribution.png
 ├── safety/                 # Emergency rollback and failsafe network reset scripts
 │   └── restore.sh
 ├── scripts/                # Automated testbed setup, teardown, and stage runner scripts
