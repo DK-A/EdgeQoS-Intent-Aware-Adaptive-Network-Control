@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-demo/serve_dashboard.py - Local Web Server & Execution Controller
-Serves edgeqos_dashboard.html on http://localhost:8080.
-Provides REST endpoints to execute live kernel tests directly from the web browser!
+demo/serve_dashboard.py - Enterprise EdgeQoS Operations Controller
+Serves the professional gateway telemetry console on http://localhost:8080
+and exposes REST automation endpoints for all verification stages (S1, S2, S3, S6, All).
 """
 
 import http.server
@@ -23,7 +23,8 @@ task_state = {
     "task": "",
     "logs": [],
     "returncode": None,
-    "start_time": 0.0
+    "start_time": 0.0,
+    "progress_pct": 0
 }
 
 def execute_command_thread(task_name, cmd):
@@ -34,6 +35,7 @@ def execute_command_thread(task_name, cmd):
         task_state["logs"] = [f"[*] Initiating {task_name}...", f"[*] Command: {cmd}"]
         task_state["returncode"] = None
         task_state["start_time"] = time.time()
+        task_state["progress_pct"] = 10
 
     try:
         p = subprocess.Popen(
@@ -50,12 +52,19 @@ def execute_command_thread(task_name, cmd):
                 clean_line = line.rstrip()
                 with task_lock:
                     task_state["logs"].append(clean_line)
-                    if len(task_state["logs"]) > 200:
+                    if len(task_state["logs"]) > 250:
                         task_state["logs"].pop(0)
+                    if "Stage S2" in clean_line:
+                        task_state["progress_pct"] = 35
+                    elif "Stage S3" in clean_line:
+                        task_state["progress_pct"] = 65
+                    elif "SUCCESS" in clean_line or "PASSED" in clean_line:
+                        task_state["progress_pct"] = 90
         p.wait()
         with task_lock:
             task_state["returncode"] = p.returncode
-            task_state["logs"].append(f"[+] Task {task_name} finished with exit code {p.returncode}")
+            task_state["progress_pct"] = 100
+            task_state["logs"].append(f"[+] Task {task_name} completed with exit code {p.returncode}")
     except Exception as e:
         with task_lock:
             task_state["logs"].append(f"[-] Execution error: {e}")
@@ -94,7 +103,7 @@ class EdgeQoSDashboardHandler(http.server.SimpleHTTPRequestHandler):
                     return
                 except Exception:
                     pass
-            # Fallback data
+            # Default state
             fallback = {
                 "active": False,
                 "rtt_ms": 20.50,
@@ -143,18 +152,30 @@ class EdgeQoSDashboardHandler(http.server.SimpleHTTPRequestHandler):
 
             cmd = None
             task_name = ""
-            if action == "collapse":
+            if action == "run_all":
+                cmd = "bash scripts/run_all_prepi_stages.sh && python3 scripts/run_stage_s3_collapse.py"
+                task_name = "Full Verification Suite (Stages S1, S2, S3 & Collapse)"
+            elif action == "collapse":
                 cmd = "python3 scripts/run_stage_s3_collapse.py"
-                task_name = "Real Kernel SC2 Capacity Collapse Test"
+                task_name = "Scenario SC2: Capacity Collapse & Buffer Drain"
             elif action == "trace":
                 cmd = "python3 scripts/run_stage_s2_trace.py"
-                task_name = "Real Kernel Stage S2 Flow Steering Trace"
+                task_name = "Stage S2: Kernel Multi-Tin Flow Steering Trace"
+            elif action == "verify":
+                cmd = "make verify"
+                task_name = "Full EdgeQoS Core Verification Suite (Tests + Sim)"
+            elif action == "tin_mapping":
+                cmd = "python3 scripts/test_tin_mapping.py"
+                task_name = "Kernel CAKE diffserv4 Tin Mapping Verification"
+            elif action == "privacy":
+                cmd = "python3 tests/test_privacy.py"
+                task_name = "Test T-PRIV: Protocol-Aware Zero-DPI Inspection"
             elif action == "setup":
                 cmd = "bash scripts/setup_netns_topo.sh"
-                task_name = "Network Namespace Testbed Setup"
+                task_name = "Rebuild 4-Namespace Testbed Topology"
             elif action == "teardown":
                 cmd = "bash scripts/teardown_netns_topo.sh"
-                task_name = "Network Namespace Testbed Teardown"
+                task_name = "Teardown Testbed Namespaces"
             else:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
@@ -181,8 +202,8 @@ def start_server():
     try:
         with socketserver.TCPServer(("", PORT), EdgeQoSDashboardHandler) as httpd:
             print(f"==================================================")
-            print(f"[+] EdgeQoS Interactive Dashboard Server Live!")
-            print(f"[+] Direct Browser Control URL: http://localhost:{PORT}")
+            print(f"[+] EdgeQoS Enterprise Operations Console Live!")
+            print(f"[+] Direct Control URL: http://localhost:{PORT}")
             print(f"==================================================")
             httpd.serve_forever()
     except OSError as e:
