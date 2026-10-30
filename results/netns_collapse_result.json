@@ -1,0 +1,11 @@
+{
+  "label": "[NETNS]",
+  "scenario": "SC2_Collapse_100M_to_20M",
+  "B0_FIFO_p50_ms": 124.0,
+  "B0_FIFO_p95_ms": 124.0,
+  "B0_FIFO_p99_ms": 124.0,
+  "S3_EdgeQoS_p50_ms": 20.5,
+  "S3_EdgeQoS_p95_ms": 20.6,
+  "S3_EdgeQoS_p99_ms": 20.6,
+  "reduction_pct": 83.5
+}

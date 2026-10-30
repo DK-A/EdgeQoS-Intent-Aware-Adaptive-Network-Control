@@ -1,0 +1,44 @@
+[
+  {
+    "flow_type": "VoIP Audio (Small pkts)",
+    "5_tuple": "192.168.1.10:5060 -> 10.0.2.2:5060 (UDP)",
+    "packet_count": 50,
+    "mark_applied": "DSCP EF (46 / 0xb8)",
+    "target_tin": "Voice (tin_3)",
+    "observed_tin_increment": {
+      "tin_0": 0,
+      "tin_1": 0,
+      "tin_2": 0,
+      "tin_3": 50
+    },
+    "pass": true
+  },
+  {
+    "flow_type": "Video Stream (Medium pkts)",
+    "5_tuple": "192.168.1.10:5004 -> 10.0.2.2:5004 (UDP)",
+    "packet_count": 50,
+    "mark_applied": "DSCP AF41 (34 / 0x88)",
+    "target_tin": "Video (tin_2)",
+    "observed_tin_increment": {
+      "tin_0": 0,
+      "tin_1": 0,
+      "tin_2": 50,
+      "tin_3": 0
+    },
+    "pass": true
+  },
+  {
+    "flow_type": "Bulk Background (Large pkts)",
+    "5_tuple": "192.168.1.10:9001 -> 10.0.2.2:9001 (UDP)",
+    "packet_count": 50,
+    "mark_applied": "DSCP CS1 (8 / 0x20)",
+    "target_tin": "Bulk (tin_0)",
+    "observed_tin_increment": {
+      "tin_0": 50,
+      "tin_1": 0,
+      "tin_2": 0,
+      "tin_3": 0
+    },
+    "pass": true
+  }
+]
