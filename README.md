@@ -283,14 +283,18 @@ sudo bash scripts/run_all_prepi_stages.sh
 
 ---
 
-## 👥 Engineering Team & Specializations
+## 👥 Engineering Team & Hardware/Software Division (ECE)
 
-Developed by a dedicated 2-member systems engineering team for the **Tata Elxsi TELIPORT Season 4 Hackathon** (Problem Statement 3: Media & Communications Vertical):
+Developed by a 2-member **Electronics & Communication Engineering (ECE)** team for the **Tata Elxsi TELIPORT Season 4 Hackathon** (Problem Statement 3: Media & Communications Vertical), featuring a balanced co-design between embedded hardware acceleration and real-time control software:
 
-| Role / Specialization | Core Responsibilities & Contributions |
-| :--- | :--- |
-| **Systems & Linux Data Plane Lead** | Linux kernel queue disciplines (`tc-cake diffserv4`), `nftables` Zero-DPI packet truncation, C netlink ring buffer reader (`reader.c`), network namespace testbed orchestration (`c1`, `gw`, `isp`, `srv`), and capacity collapse benchmarks. |
-| **ML & Edge Infrastructure Lead** | Statistical early-flow feature extraction, Decision Tree compression & microsecond benchmarking ($0.741\ \mu\text{s}$), dynamic bandwidth guardrails with latched hysteresis, and NOC telemetry dashboard. |
+| Team Member & ECE Specialization | Domain | Core Architectural Contributions & Hardware/Software Deliverables |
+| :--- | :---: | :--- |
+| **Lead 1: Embedded Hardware, Gateway SoC & Kernel Data Plane**<br>*(Electronics & Communication Engineering)* | **HARDWARE & DATA PLANE** | • **Target Hardware Architecture:** Raspberry Pi 4B (Quad-Core ARM Cortex-A72 @ 1.5 GHz) SoC deployment, PCIe GbE WAN/LAN interface mapping, thermal and power profiling.<br>• **Kernel Queue Disciplines:** In-kernel Linux `tc-cake diffserv4` hardware tin configuration, Deficit Round Robin (DRR+) state machine, Cobalt AQM tuning.<br>• **Fast-Path Acceleration:** High-performance C netlink `mmap` packet ring-buffer (`reader/reader.c`), kernel-boundary Zero-DPI snaplen truncation rules (`dataplane/edgeqos.nft`).<br>• **Testbed Orchestration:** Real Linux network namespace virtual hardware testbed (`c1`, `gw`, `isp`, `srv`), physical veth interconnects, and kernel verification test scripts. |
+| **Lead 2: Embedded Systems, Edge AI & Real-Time Control**<br>*(Electronics & Communication Engineering)* | **EMBEDDED SOFTWARE & CONTROL** | • **Statistical Feature Engineering:** Early-flow signal extraction from raw packet headers (packet size histograms, inter-arrival time IAT jitter, directionality metrics).<br>• **Sub-Microsecond Edge ML:** Decision Tree quantization and micro-benchmarking ($0.741\ \mu\text{s}$ p50), confidence calibration, and safe abstention state machine (`ml/classifier.py`).<br>• **Closed-Loop Control Systems:** Dual-loop dynamic bandwidth tracker, EWMA noise filtering, and latched hysteresis for bottleneck collapse adaptation (`controller/guard.py`).<br>• **NOC Telemetry & Operations Console:** Real-time web operations dashboard, SVG hardware pipeline visualizer, asynchronous REST runner daemon (`demo/serve_dashboard.py`). |
+
+### 🛠️ Hardware/Software Co-Design Synergy
+* **Hardware Constraints Met:** Single-core gateway CPU utilization stays at **$1.8\%$** on x86 and **$< 12\%$** on ARM Cortex-A72; total memory footprint is capped at **$14.2\text{ MB}$ RSS**, fitting comfortably within constrained edge gateway SoCs.
+* **Software Decoupling Invariant:** The userspace machine learning and control loops operate completely out-of-band. Even under severe userspace software failure, the kernel hardware queue discipline forwards packets uninterrupted at line rate.
 
 ---
 
