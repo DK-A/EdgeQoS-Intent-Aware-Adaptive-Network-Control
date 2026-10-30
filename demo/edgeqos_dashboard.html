@@ -68,6 +68,33 @@
       </div>
     </header>
 
+    
+    <!-- 1-Click Direct Kernel Execution Deck -->
+    <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-cyan-950/40 border border-cyan-800/60 p-3.5 rounded-xl shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-2">
+            <span>⚡ 1-Click Live Kernel Execution Engine</span>
+            <span class="px-2 py-0.5 rounded text-[10px] bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">No Terminal Needed</span>
+          </div>
+          <div class="text-[11px] text-slate-400">Trigger real Linux kernel namespace tests directly from your web browser</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap w-full md:w-auto">
+        <button onclick="triggerKernelAction('collapse')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white border border-cyan-400 transition flex items-center gap-1.5 glow-cyan">
+          <span>⚡ Run SC2 Collapse</span>
+        </button>
+        <button onclick="triggerKernelAction('trace')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+          <span>🎯 Run S2 Steering</span>
+        </button>
+        <button onclick="triggerKernelAction('setup')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition">
+          <span>↺ Rebuild Netns</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Master Interactive Controller & Playback Bar -->
     <div class="bg-slate-900/90 border border-slate-800 p-4 rounded-xl shadow-2xl space-y-4">
       
@@ -382,6 +409,31 @@
       </table>
     </div>
 
+    
+    <!-- Live Execution Terminal Drawer / Modal -->
+    <div id="exec-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-slate-900 border border-cyan-800 rounded-xl max-w-3xl w-full p-5 space-y-3 shadow-2xl glow-cyan">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+          <div class="flex items-center gap-2">
+            <span id="exec-spinner" class="w-3 h-3 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin"></span>
+            <h3 id="exec-modal-title" class="text-sm font-bold text-white font-mono">Executing Real Kernel Test...</h3>
+          </div>
+          <button onclick="closeExecModal()" class="text-slate-400 hover:text-white font-mono text-lg">✕</button>
+        </div>
+
+        <div class="bg-slate-950 p-3.5 rounded-lg font-mono text-xs text-emerald-400 h-72 overflow-y-auto space-y-1 border border-slate-800" id="exec-terminal-logs">
+          <div class="text-slate-500">[*] Connecting to background execution daemon...</div>
+        </div>
+
+        <div class="flex justify-between items-center text-xs pt-1 border-t border-slate-800">
+          <span id="exec-status-footer" class="text-cyan-400 font-mono">Status: Task Running in Linux Namespaces...</span>
+          <button id="btn-close-exec" onclick="closeExecModal()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-bold border border-slate-700 transition">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Raw Evidence Modal -->
     <div id="audit-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
       <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-3xl w-full p-5 space-y-3 shadow-2xl">
@@ -427,6 +479,94 @@
   </div>
 
   <script>
+    
+    // 1-Click Execution Controller
+    let execPollTimer = null;
+
+    async function triggerKernelAction(actionName) {
+      const modal = document.getElementById('exec-modal');
+      const title = document.getElementById('exec-modal-title');
+      const logs = document.getElementById('exec-terminal-logs');
+      const footer = document.getElementById('exec-status-footer');
+      const spinner = document.getElementById('exec-spinner');
+
+      modal.classList.remove('hidden');
+      spinner.classList.remove('hidden');
+      title.textContent = `Starting ${actionName}...`;
+      logs.innerHTML = `<div class="text-cyan-400">[*] Sending execution request: ${actionName} to http://localhost:8080/api/exec...</div>`;
+      footer.textContent = 'Status: Initializing kernel task...';
+
+      try {
+        const res = await fetch('http://127.0.0.1:8080/api/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: actionName }),
+          mode: 'cors'
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          title.textContent = `Running: ${data.task}`;
+          footer.textContent = 'Status: Actively running inside Linux network namespaces...';
+          startPollingExecLogs();
+        } else {
+          const err = await res.json();
+          logs.innerHTML += `<div class="text-rose-400">[-] Error: ${err.error || 'Server rejected request'}</div>`;
+          spinner.classList.add('hidden');
+          footer.textContent = 'Status: Failed to start.';
+        }
+      } catch (e) {
+        logs.innerHTML += `<div class="text-amber-400">[-] Notice: Background server not running on http://localhost:8080.</div>`;
+        logs.innerHTML += `<div class="text-slate-300">[*] Please start the server once in your terminal with:</div>`;
+        logs.innerHTML += `<div class="text-cyan-300 font-bold bg-slate-900 p-2 rounded mt-1">sudo python3 demo/serve_dashboard.py</div>`;
+        logs.innerHTML += `<div class="text-slate-400 mt-1">After starting, all buttons execute directly with 1 click!</div>`;
+        spinner.classList.add('hidden');
+        footer.textContent = 'Status: Server offline.';
+      }
+    }
+
+    function startPollingExecLogs() {
+      if (execPollTimer) clearInterval(execPollTimer);
+      const logsDiv = document.getElementById('exec-terminal-logs');
+      const spinner = document.getElementById('exec-spinner');
+      const footer = document.getElementById('exec-status-footer');
+
+      execPollTimer = setInterval(async () => {
+        try {
+          const res = await fetch('http://127.0.0.1:8080/api/exec/status', { mode: 'cors' });
+          if (res.ok) {
+            const st = await res.json();
+            if (st.logs && st.logs.length > 0) {
+              logsDiv.innerHTML = st.logs.map(l => {
+                let col = 'text-slate-300';
+                if (l.includes('[+]')) col = 'text-emerald-400 font-bold';
+                else if (l.includes('[-]')) col = 'text-rose-400 font-bold';
+                else if (l.includes('[*]')) col = 'text-cyan-300';
+                return `<div class="${col}">${l}</div>`;
+              }).join('');
+              logsDiv.scrollTop = logsDiv.scrollHeight;
+            }
+
+            if (!st.running) {
+              clearInterval(execPollTimer);
+              spinner.classList.add('hidden');
+              footer.textContent = `Status: Complete (Exit Code ${st.returncode}). Dashboard updated!`;
+              footer.className = 'text-emerald-400 font-mono font-bold';
+              setMode('real'); // Automatically switch to Real Kernel mode!
+            }
+          }
+        } catch (e) {
+          clearInterval(execPollTimer);
+          spinner.classList.add('hidden');
+        }
+      }, 400);
+    }
+
+    function closeExecModal() {
+      document.getElementById('exec-modal').classList.add('hidden');
+      if (execPollTimer) clearInterval(execPollTimer);
+    }
+
     // State Store
     let currentMode = 'real'; // 'b0', 'sim', 'real', 'pi'
     let currentScenario = 'sc2'; // 'sc1', 'sc2', 'sc6'

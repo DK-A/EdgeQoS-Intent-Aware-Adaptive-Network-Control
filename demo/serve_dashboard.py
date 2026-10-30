@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-demo/serve_dashboard.py - Local Web Server for EdgeQoS Interactive Dashboard
-Serves edgeqos_dashboard.html on http://localhost:8080 and provides /api/telemetry.
+demo/serve_dashboard.py - Local Web Server & Execution Controller
+Serves edgeqos_dashboard.html on http://localhost:8080.
+Provides REST endpoints to execute live kernel tests directly from the web browser!
 """
 
 import http.server
@@ -10,22 +11,81 @@ import os
 import json
 import subprocess
 import threading
+import time
 
 PORT = 8080
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(DIRECTORY, ".."))
+
+task_lock = threading.Lock()
+task_state = {
+    "running": False,
+    "task": "",
+    "logs": [],
+    "returncode": None,
+    "start_time": 0.0
+}
+
+def execute_command_thread(task_name, cmd):
+    global task_state
+    with task_lock:
+        task_state["running"] = True
+        task_state["task"] = task_name
+        task_state["logs"] = [f"[*] Initiating {task_name}...", f"[*] Command: {cmd}"]
+        task_state["returncode"] = None
+        task_state["start_time"] = time.time()
+
+    try:
+        p = subprocess.Popen(
+            cmd,
+            shell=True,
+            cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+        for line in iter(p.stdout.readline, ''):
+            if line:
+                clean_line = line.rstrip()
+                with task_lock:
+                    task_state["logs"].append(clean_line)
+                    if len(task_state["logs"]) > 200:
+                        task_state["logs"].pop(0)
+        p.wait()
+        with task_lock:
+            task_state["returncode"] = p.returncode
+            task_state["logs"].append(f"[+] Task {task_name} finished with exit code {p.returncode}")
+    except Exception as e:
+        with task_lock:
+            task_state["logs"].append(f"[-] Execution error: {e}")
+            task_state["returncode"] = -1
+    finally:
+        with task_lock:
+            task_state["running"] = False
 
 class EdgeQoSDashboardHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
 
+    def send_cors_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_cors_headers()
+        self.end_headers()
+
     def do_GET(self):
         if self.path == "/api/telemetry":
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_cors_headers()
             self.end_headers()
             
-            telemetry_path = os.path.join(DIRECTORY, "..", "results", "live_telemetry.json")
+            telemetry_path = os.path.join(PROJECT_ROOT, "results", "live_telemetry.json")
             if os.path.exists(telemetry_path):
                 try:
                     with open(telemetry_path, "r") as f:
@@ -34,7 +94,7 @@ class EdgeQoSDashboardHandler(http.server.SimpleHTTPRequestHandler):
                     return
                 except Exception:
                     pass
-            # Fallback if bridge is not running yet
+            # Fallback data
             fallback = {
                 "active": False,
                 "rtt_ms": 20.50,
@@ -43,11 +103,78 @@ class EdgeQoSDashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "guard_status": "READY"
             }
             self.wfile.write(json.dumps(fallback).encode("utf-8"))
+            return
+
+        elif self.path == "/api/exec/status":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_cors_headers()
+            self.end_headers()
+            with task_lock:
+                status_copy = dict(task_state)
+            self.wfile.write(json.dumps(status_copy).encode("utf-8"))
+            return
+
         elif self.path == "/" or self.path == "/dashboard":
             self.path = "/edgeqos_dashboard.html"
             return super().do_GET()
         else:
             return super().do_GET()
+
+    def do_POST(self):
+        if self.path == "/api/exec":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+            try:
+                req = json.loads(body)
+            except Exception:
+                req = {}
+
+            action = req.get("action", "")
+            global task_state
+            with task_lock:
+                if task_state["running"]:
+                    self.send_response(409)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": "A task is already running", "task": task_state["task"]}).encode("utf-8"))
+                    return
+
+            cmd = None
+            task_name = ""
+            if action == "collapse":
+                cmd = "python3 scripts/run_stage_s3_collapse.py"
+                task_name = "Real Kernel SC2 Capacity Collapse Test"
+            elif action == "trace":
+                cmd = "python3 scripts/run_stage_s2_trace.py"
+                task_name = "Real Kernel Stage S2 Flow Steering Trace"
+            elif action == "setup":
+                cmd = "bash scripts/setup_netns_topo.sh"
+                task_name = "Network Namespace Testbed Setup"
+            elif action == "teardown":
+                cmd = "bash scripts/teardown_netns_topo.sh"
+                task_name = "Network Namespace Testbed Teardown"
+            else:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid action"}).encode("utf-8"))
+                return
+
+            t = threading.Thread(target=execute_command_thread, args=(task_name, cmd), daemon=True)
+            t.start()
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_cors_headers()
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "started", "task": task_name}).encode("utf-8"))
+            return
+
+        self.send_response(404)
+        self.end_headers()
 
 def start_server():
     socketserver.TCPServer.allow_reuse_address = True
@@ -55,7 +182,7 @@ def start_server():
         with socketserver.TCPServer(("", PORT), EdgeQoSDashboardHandler) as httpd:
             print(f"==================================================")
             print(f"[+] EdgeQoS Interactive Dashboard Server Live!")
-            print(f"[+] URL: http://localhost:{PORT}")
+            print(f"[+] Direct Browser Control URL: http://localhost:{PORT}")
             print(f"==================================================")
             httpd.serve_forever()
     except OSError as e:
