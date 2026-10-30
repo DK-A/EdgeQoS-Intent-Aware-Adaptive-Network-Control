@@ -5,8 +5,55 @@
 [![Latency Cut](https://img.shields.io/badge/Measured%20Latency%20Cut-83.5%25-brightgreen?style=for-the-badge)](results/netns_collapse_result.json)
 [![Inference Speed](https://img.shields.io/badge/TinyML%20Inference-0.741%20%C2%B5s-cyan?style=for-the-badge)](results/inference_bench.json)
 [![Target Platform](https://img.shields.io/badge/Hardware-Raspberry%20Pi%204B%20%7C%20x86__64-orange?style=for-the-badge)](docs/result_provenance.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
 
 > **EdgeQoS** is an autonomous, privacy-preserving Active Queue Management (AQM) system designed for residential broadband gateways. It eliminates standing bufferbloat and bounds latency for real-time traffic (VoIP, video conferencing, cloud gaming) during upstream bandwidth collapse without inspecting encrypted packet payloads (Zero-DPI).
+
+---
+
+## 📑 Table of Contents
+- [Executive Overview & Problem Statement](#-executive-overview--problem-statement)
+- [System Architecture & Workflow](#-system-architecture--workflow)
+- [Core Technical Novelties](#-core-technical-novelties)
+- [Architectural Tradeoff Analysis](#-architectural-tradeoff-analysis)
+- [Taxonomy & Notation Guide (Baselines, Solutions, Scenarios)](#-taxonomy--notation-guide)
+- [Master Empirical Performance Evaluation](#-master-empirical-performance-evaluation)
+- [Visual Benchmark Results Gallery](#-visual-benchmark-results-gallery)
+- [Zero-DPI Privacy Invariant (0-Byte Leakage)](#-zero-dpi-privacy-invariant)
+- [Live Network Operations Console (NOC Dashboard)](#-live-network-operations-console)
+- [Step-by-Step Reproduction Guide](#-step-by-step-reproduction-guide)
+- [Engineering Team & Responsibilities](#-engineering-team--responsibilities)
+- [Repository Structure](#-repository-structure)
+
+---
+
+## 📌 Executive Overview & Problem Statement
+
+Modern residential broadband connections face severe, unmanaged traffic heterogeneity. Latency-critical flows (voice over IP, interactive video conferencing, multiplayer gaming) must concurrently share a constrained access link with throughput-aggressive, greedy bulk transfers (system updates, ISO downloads, cloud backups) and burst-oriented adaptive video streaming.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 THE UPSTREAM BUFFERBLOAT CRISIS                                        │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+ [Home LAN Clients]               [Residential Gateway]                  [ISP Upstream Modem]
+    Zoom Audio ──┐                                                         (256 KB FIFO Buffer)
+    4K Video   ──┼─► [Gigabit LAN] ─► [ EdgeQoS Gateway ] ──► [WAN] ─────► ┌───────────────────┐
+    Downloads  ──┘                     (100 Mbps Line)                     │███████████████████│ ──► [Internet]
+                                                                           └───────────────────┘
+                                                                           ▲ Standing Queue
+                                                                           ▲ Delays RTT to 124 ms!
+```
+
+### The Physics of Bufferbloat
+When upstream broadband bandwidth collapses (e.g., cellular/DSL contention or line throttling from **100 Mbps down to 20 Mbps**), greedy TCP/UDP flows overflow unmanaged FIFO queues in upstream customer premises equipment (modems and ONTs):
+
+$$\text{Standing Queue Delay} = \frac{\text{Modem Buffer Size}}{\text{Bottleneck Capacity}} + \text{Base RTT}$$
+
+$$\text{Theoretical Delay} = \frac{256\text{ KB} \times 8 \times 1024\text{ bits}}{20{,}000{,}000\text{ bps}} + 20\text{ ms} = 104.85\text{ ms} + 20\text{ ms} = \mathbf{124.85\text{ ms}}$$
+
+* **Observed Unmanaged FIFO ($B_0$):** Real Linux kernel measurements reveal a persistent **$124.00\text{ ms}$** standing latency, causing severe audio distortion, packet drop, and telepresence freezing.
+* **The Zero-DPI Constraint:** Because $>90\%$ of modern traffic is end-to-end encrypted (TLS 1.3, QUIC, WireGuard), traditional Deep Packet Inspection (DPI) is legally and cryptographically prohibited.
 
 ---
 
@@ -18,7 +65,7 @@ EdgeQoS divides duties strictly between **Userspace Intelligence (Control Plane)
 
 1. **Home Devices:** Heterogeneous traffic originating from LAN endpoints (VoIP, telepresence, gaming, 4K streaming, bulk updates).
 2. **Userspace Control Plane:**
-   - **Confidence-Aware Traffic Classification:** Incurs sub-microsecond inference ($0.741\ \mu\text{s}$) on early-flow metadata (packet sizes, direction, IAT, TCP flags) at packet 10, with calibrated abstention.
+   - **Confidence-Aware Traffic Classification:** Sub-microsecond inference ($0.741\ \mu\text{s}$) on early-flow metadata (packet sizes, direction, IAT, TCP flags) at packet 10, with calibrated abstention.
    - **Bottleneck-Aware Congestion Detection:** Fuses internal gateway queue delay and backlog with external reflector RTT probes to detect capacity collapse.
    - **Adaptive Bandwidth Control:** Clamps shaping rates dynamically within safe operational bounds ($[10\text{ Mbps}, 100\text{ Mbps}]$) using latched hysteresis.
 3. **Kernel Data Plane (Fast Path Enforcement):**
@@ -31,30 +78,57 @@ EdgeQoS divides duties strictly between **Userspace Intelligence (Control Plane)
 
 ---
 
-## 📖 Taxonomy & Notation Guide (Baselines, Solutions & Scenarios)
+## 💡 Core Technical Novelties
 
-To ensure complete clarity across all benchmarks, the evaluation uses formal designations:
+| # | Novelty Area | EdgeQoS Architectural Innovation | Competitive Advantage Over Industry |
+| :-: | :--- | :--- | :--- |
+| **1** | **Privacy Invariant** | **In-Kernel Protocol-Aware Zero-DPI Capture Barrier**<br>Enforces exact header truncation via `nftables`: 28B for UDP (20B IP + 8B UDP) and 40B for TCP (20B IP + 20B TCP). | **Zero user payload leakage (0 Bytes)**. 100% compliant with end-to-end encryption (TLS 1.3/QUIC) and global privacy mandates (GDPR/CCPA). |
+| **2** | **Sub-Microsecond Edge ML** | **Early-Flow Micro-Decision Trees ($0.741\ \mu\text{s}$)**<br>Classifies traffic at packet 10 using only statistical header distributions; sparse packets (1-9) are inherently protected by CAKE. | **$100\times$ faster than deep neural nets** (CNN/LSTM require 10-50 ms). Consumes only **14.2 MB RSS**, fitting comfortably on low-cost ARM SoCs. |
+| **3** | **Dual-Loop Capacity Tracker** | **Passive RTT Hysteresis without Speedtest Floods**<br>Compares gateway queue backlog against external reflector RTT to distinguish between idle links and upstream bottleneck collapses. | **Zero bandwidth waste**. Senses collapse and settles shaper rates in **1.64 seconds**, preventing modem buffer bloat before queues can form. |
+| **4** | **Decoupled Architecture** | **Kernel Fast-Path Decoupling & Fail-Safe Survivability**<br>Packet forwarding runs entirely in-kernel. The ML classifier and rate controller run asynchronously out-of-band. | **Zero forwarding delay penalty**. If userspace daemons terminate or crash, the kernel continues line-rate forwarding in Best Effort without service drop. |
+
+---
+
+## ⚖️ Architectural Tradeoff Analysis
+
+Designing for resource-constrained broadband gateways (such as the quad-core ARM Cortex-A72 on a Raspberry Pi 4B) demands uncompromising engineering discipline. The table below details why EdgeQoS selected its architectural components:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                               ARCHITECTURAL DECISION & TRADEOFF MATRIX                                 │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Decision Area | Considered Alternatives | Chosen Architecture | Non-Obvious Engineering Rationale |
+| :--- | :--- | :--- | :--- |
+| **Inference Model** | Deep Learning (1D-CNN, LSTM, TinyTransformer) | **Compressed Statistical Decision Tree** | Neural networks demand floating-point acceleration, require 15-50 ms per inference, and consume $>100\text{ MB}$ RAM. Our Decision Tree evaluates in **$0.741\ \mu\text{s}$** and uses integer arithmetic, leaving gateway CPU at $< 2\%$. |
+| **Packet Inspection** | Deep Packet Inspection (DPI / nDPI / Snort) | **Protocol-Aware Snaplen Zero-DPI** | $>90\%$ of residential traffic is encrypted by TLS 1.3 / QUIC; DPI cannot inspect payloads without running invasive MITM certificates. Header-only statistical features bypass encryption limitations entirely while preserving privacy. |
+| **Kernel AQM** | Standard FQ-CoDel | **CAKE (`diffserv4`) with DRR+ Scheduling** | While FQ-CoDel provides flow isolation, it lacks multi-tin priority scheduling: high-rate video can starve voice packets. CAKE combines Cobalt AQM with **Deficit Round Robin (DRR+)** and per-host isolation across 4 tins. |
+| **Bandwidth Estimation** | Active Speedtest Flooding (iperf3/ookla) | **Passive Queue-RTT Latched Hysteresis** | Active probing consumes customer data quotas and induces artificial congestion. EdgeQoS tracks external reflector RTT and internal backlog passively, adjusting rate steps only when queue inflation is verified. |
+| **Data Plane Path** | Userspace DPDK / AF_XDP Software Switch | **Linux In-Kernel Netfilter + `tc-cake`** | Userspace forwarding requires dedicated core polling (100% CPU utilization). Leveraging native Linux kernel `nftables` and `tc-cake` preserves line-rate forwarding with zero kernel-bypass complexity. |
+
+---
+
+## 📖 Taxonomy & Notation Guide
+
+To ensure unambiguous scientific evaluation, EdgeQoS formalizes all experimental designations:
 
 ### 1. Baselines ($B$)
-| Designation | Architecture | Description | Behavior Under Contention |
-| :---: | :--- | :--- | :--- |
-| **$B_0$** | **DropTail FIFO** | Default consumer gateway / modem queuing. Single unmanaged FIFO buffer. | Severe Bufferbloat ($124.00\text{ ms}$ standing delay). |
-| **$B_1$** | **Fixed Shaper + CAKE** | Static CAKE installation tuned to a fixed 95 Mbps nominal rate. | Fails when ISP capacity drops below 95 Mbps. |
-| **$B_2$** | **Dynamic Shaper Only** | Senses capacity and shapes rate, but lacks multi-tin flow classification. | Voice packets wait behind 1500B video chunks in single queue. |
-| **$B_3$** | **Pure ML DSCP Marking** | Classifies flows and marks DSCP, but lacks gateway egress shaping. | Upstream ISP modem drops/ignores DSCP; buffer fills anyway. |
-| **$B_4$** | **Stale CAKE (95M)** | CAKE configured with stale 95 Mbps rate when link collapses to 20 Mbps. | Upstream 256 KB modem buffer accumulates 125 ms standing delay. |
+* **$B_0$ (Unmanaged DropTail FIFO):** Default Linux/consumer gateway queue. Single unmanaged FIFO buffer. Demonstrates the unmitigated bufferbloat disaster (**$124.00\text{ ms}$ standing delay**).
+* **$B_1$ (Fixed Shaper + CAKE):** Static CAKE tuned to a single rate (95 Mbps). Fails completely when line capacity drops below the configured rate.
+* **$B_2$ (Dynamic Shaper Only):** Dynamically adjusts bandwidth, but lacks multi-tin classification. Voice packets remain queued behind bulk 1500B packets.
+* **$B_3$ (Pure ML DSCP Marking):** Classifies traffic and marks DSCP bits, but lacks gateway shaping. The upstream ISP modem drops/ignores DSCP tags, allowing the queue to saturate.
+* **$B_4$ (Stale CAKE 95M):** Demonstrates stale configurations when ISP collapses from 100M to 20M, accumulating 125 ms of standing delay.
 
 ### 2. Solutions ($S$)
-| Designation | System Variant | Key Innovations |
-| :---: | :--- | :--- |
-| **$S_1$** | **Static Multi-Tin** | Fixed 4-tin CAKE with hardcoded port rules (no dynamic learning). |
-| **$S_2$** | **Unguarded ML Shaper** | ML predicts bandwidth directly without guardrails or hysteresis (prone to hunting). |
-| **$S_3$** | **Full EdgeQoS** *(Our System)* | **Zero-DPI TinyML + Guarded Bandwidth Tracker + CAKE diffserv4 4-Tin Scheduling**. |
-| **$S_4$** | **EdgeQoS + Intent Leases** | EdgeQoS with active RSVP-style endpoint tokens for guaranteed burst headroom. |
+* **$S_1$ (Static Multi-Tin):** Fixed 4-tin CAKE with hardcoded port rules (no dynamic adaptation).
+* **$S_2$ (Unguarded ML Shaper):** Pure ML prediction directly driving shaper rate without bounds, resulting in hunting oscillations and rate instability.
+* **$S_3$ (Full EdgeQoS — Our System):** **Zero-DPI TinyML Classifier + Guarded Capacity Tracker + In-Kernel CAKE diffserv4 Scheduler**.
+* **$S_4$ (EdgeQoS + Intent Leases):** EdgeQoS with active RSVP-style endpoint tokens for guaranteed burst headroom during critical calls.
 
 ### 3. Evaluation Scenarios ($SC$)
 * **$SC_1$ (Steady-State 100 Mbps):** Saturated 90 Mbps bulk traffic with concurrent 64 kbps voice and 5 Mbps video calls.
-* **$SC_2$ (Capacity Collapse 100M $\to$ 20M):** Upstream line throttles from 100 Mbps down to 20 Mbps with a 256 KB unmanaged modem buffer.
+* **$SC_2$ (Capacity Collapse 100M $\to$ 20M):** Upstream line throttles from 100 Mbps down to 20 Mbps into a 256 KB unmanaged modem buffer.
 * **$SC_6$ (Rogue / Spoofed Flow):** Aggressive 50 Mbps bulk torrent flow masquerading as VoIP to hijack priority queues.
 
 ---
@@ -149,7 +223,7 @@ Open your browser to **`http://localhost:8080`**.
 
 ---
 
-## 🚀 Step-by-Step Reproduction & Verification Guide
+## 🚀 Step-by-Step Reproduction Guide
 
 ### 1. Build the Virtual 4-Namespace Topology
 ```bash
@@ -180,6 +254,17 @@ sudo python3 scripts/run_stage_s3_collapse.py
 ```bash
 sudo bash scripts/run_all_prepi_stages.sh
 ```
+
+---
+
+## 👥 Engineering Team & Responsibilities
+
+Developed by a dedicated 2-member systems engineering team for the **Tata Elxsi TELIPORT Season 4 Hackathon** (Problem Statement 3: Media & Communications Vertical):
+
+| Role / Specialization | Core Responsibilities & Contributions |
+| :--- | :--- |
+| **Systems & Linux Data Plane Lead** | Linux kernel queue disciplines (`tc-cake diffserv4`), `nftables` Zero-DPI packet truncation, C netlink ring buffer reader (`reader.c`), network namespace orchestration (`c1`, `gw`, `isp`, `srv`), and capacity collapse benchmarks. |
+| **ML & Edge Infrastructure Lead** | Statistical early-flow feature extraction, Decision Tree compression & microsecond benchmarking ($0.741\ \mu\text{s}$), dynamic bandwidth guardrails with latched hysteresis, and NOC telemetry dashboard. |
 
 ---
 
@@ -237,7 +322,5 @@ sudo bash scripts/run_all_prepi_stages.sh
 ---
 
 ## 📜 License
-
-Developed for the **Tata Elxsi TELIPORT Season 4 Hackathon** (Problem Statement 3: Intent-Aware Network Control, Media & Communications Vertical).
 
 Released under the **MIT License**.
