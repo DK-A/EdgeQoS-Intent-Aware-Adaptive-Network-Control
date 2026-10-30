@@ -1,0 +1,7 @@
+# EdgeQoS Python Dependencies
+# Lightweight, embedded-friendly dependencies for gateway simulation & evaluation
+Pillow>=9.0.0
+numpy>=1.20.0
+scikit-learn>=1.0.0
+matplotlib>=3.5.0
+tabulate>=0.8.9
