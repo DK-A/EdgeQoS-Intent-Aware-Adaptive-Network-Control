@@ -10,86 +10,66 @@
 
 ---
 
-## 📌 Executive Summary & Problem Statement
+## 🏛️ System Architecture & Workflow
 
-Residential broadband gateways routinely face severe upstream traffic contention. High-priority, latency-sensitive packets (Zoom, Microsoft Teams, VoIP) share the same access pipe as high-volume bulk transfers (OS updates, BitTorrent, cloud backups).
+![EdgeQoS System Architecture & Workflow](docs/assets/architecture_workflow.png)
 
-### The Bufferbloat Crisis
-When upstream broadband bandwidth collapses (e.g., DSL/cable contention, cellular throttling from **100 Mbps down to 20 Mbps**), greedy TCP/UDP flows overflow unmanaged FIFO queues in upstream customer premises equipment (modems and ONTs).
+EdgeQoS divides duties strictly between **Userspace Intelligence (Control Plane)** and **In-Kernel Fast Path Enforcement (Data Plane)**:
 
-$$\text{Standing Queue Delay} = \frac{\text{Modem Buffer Size}}{\text{Bottleneck Capacity}} + \text{Base RTT}$$
-
-$$\text{Theoretical Delay} = \frac{256\text{ KB} \times 8 \times 1024\text{ bits}}{20{,}000{,}000\text{ bps}} + 20\text{ ms} = 104.85\text{ ms} + 20\text{ ms} = \mathbf{124.85\text{ ms}}$$
-
-* **Observed Unmanaged FIFO ($B_0$):** Real Linux kernel measurements reveal a persistent **$124.00\text{ ms}$** standing latency, rendering audio and video calls unusable.
-* **The Zero-DPI Constraint:** Because $>90\%$ of modern traffic is end-to-end encrypted (TLS 1.3, QUIC, WireGuard), traditional Deep Packet Inspection (DPI) is legally and cryptographically prohibited.
-
----
-
-## ⚡ The EdgeQoS Architecture
-
-EdgeQoS deploys a multi-stage, in-kernel autonomous queue management architecture combining protocol-aware sampling, microsecond machine learning inference, dynamic rate tracking, and multi-tin hardware scheduling.
-
-```
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 EDGEQOS GATEWAY DATA PLANE PIPELINE                                    │
-└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-
-    LAN Client (c1)
-  [192.168.1.10 / 10.0.1.2]
-    │  (VoIP 5060, Video 8000, iperf3 Bulk)
-    ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ 1. INGRESS: nftables Protocol-Aware Zero-DPI Capture (dataplane/edgeqos.nft)                           │
-│    • UDP Snaplen: 28 Bytes (20B IPv4 + 8B UDP)  ───► Leaked Payload = 0 Bytes                         │
-│    • TCP Snaplen: 40 Bytes (20B IPv4 + 20B TCP) ───► Leaked Payload = 0 Bytes                         │
-│    • Exact zero user payload ever reaches userspace memory (Verified via tests/test_privacy.py)        │
-└────────────────────────────────────┬───────────────────────────────────────────────────────────────────┘
-                                     │ Ring Buffer (mmap)
-                                     ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ 2. INFERENCE: C Reader & TinyML Flow Classifier (ml/classifier.py & reader/reader.c)                   │
-│    • Statistical Feature Extraction: Packet size histograms, inter-arrival time (IAT), TCP flags       │
-│    • Model: Sub-microsecond Decision Tree (0.741 µs p50 inference latency, 14.2 MB RSS)                │
-│    • Autonomous Labeling: Flow marked at packet 10; early sparse packets protected by CAKE            │
-└────────────────────────────────────┬───────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ 3. CAPACITY TRACKER: Guarded Dynamic Rate Controller (controller/guard.py)                            │
-│    • Continuous link capacity estimation via reflector RTT and bottleneck drain rate                   │
-│    • Clamped to safe operational bounds: [10 Mbps, 100 Mbps] with latched hysteresis                   │
-│    • Dynamic Shaper Command: tc qdisc change dev gw-wan cake bandwidth 18Mbit                         │
-└────────────────────────────────────┬───────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ 4. EGRESS SCHEDULING: Linux Kernel CAKE diffserv4 (tc-cake)                                            │
-│    • Tin 3 (Voice / EF):        High-priority low-delay audio (Zoom, Teams, SIP)                       │
-│    • Tin 2 (Video / AF41):      Interactive conferencing and adaptive streaming                       │
-│    • Tin 1 (Best Effort / CS0): Default web traffic, DNS, HTTP/3                                       │
-│    • Tin 0 (Bulk / CS1):        Scavenger traffic (iperf3, BitTorrent, system updates)                 │
-│    • Deficit Round Robin (DRR+) + Cobalt AQM: Eliminates inter-flow starvation and drops standing queue │
-└────────────────────────────────────┬───────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-       ISP Modem Bottleneck (isp) ──────────► Target Internet Server (srv)
-       [256 KB FIFO Buffer Drained to 0.0 KB]       [10.0.3.2 / Echo + iperf3]
-```
+1. **Home Devices:** Heterogeneous traffic originating from LAN endpoints (VoIP, telepresence, gaming, 4K streaming, bulk updates).
+2. **Userspace Control Plane:**
+   - **Confidence-Aware Traffic Classification:** Incurs sub-microsecond inference ($0.741\ \mu\text{s}$) on early-flow metadata (packet sizes, direction, IAT, TCP flags) at packet 10, with calibrated abstention.
+   - **Bottleneck-Aware Congestion Detection:** Fuses internal gateway queue delay and backlog with external reflector RTT probes to detect capacity collapse.
+   - **Adaptive Bandwidth Control:** Clamps shaping rates dynamically within safe operational bounds ($[10\text{ Mbps}, 100\text{ Mbps}]$) using latched hysteresis.
+3. **Kernel Data Plane (Fast Path Enforcement):**
+   - **Linux Kernel CAKE (`diffserv4`):** Operates at line rate directly inside the network stack, scheduling packets across 4 hardware tins:
+     - **Tin 3 (Voice / Interactive):** Expedited Forwarding (`EF`, `CS5`, `CS4`) with absolute delay bounds.
+     - **Tin 2 (Video):** Assured Forwarding (`AF41`) for interactive telepresence and video streaming.
+     - **Tin 1 (Best Effort):** Class Selector 0 (`CS0`) for standard web traffic, DNS, and unclassified flows.
+     - **Tin 0 (Bulk Transfers):** Scavenger Class (`CS1`) for background downloads, torrents, and updates.
+4. **Closed-Loop Feedback:** Gateway queue delay, external RTT, backlog bytes, and drain throughput continuously regulate the adaptive controller.
 
 ---
 
-## 📊 Empirical Evaluation & Benchmark Results
+## 📖 Taxonomy & Notation Guide (Baselines, Solutions & Scenarios)
 
-The following table presents empirical performance metrics measured across four verification tiers:
-1. **$B_0$ (Baseline):** Default unmanaged DropTail FIFO (Linux standard).
-2. **`[SIM]` (Simulator):** Discrete-event Python simulation model (`sim/benchmark.py`).
-3. **`[NETNS]` (Real Kernel):** Physical Linux 6.8 kernel with 4 network namespaces and `tc-cake diffserv4`.
-4. **`[PI]` (Target Hardware):** Quad-core ARM Cortex-A72 (Raspberry Pi 4B Silicon).
+To ensure complete clarity across all benchmarks, the evaluation uses formal designations:
 
-| Metric / Scenario | $B_0$ DropTail FIFO | `[SIM]` Simulator | `[NETNS]` Real Kernel | `[PI]` Raspberry Pi 4B | Target Criteria |
+### 1. Baselines ($B$)
+| Designation | Architecture | Description | Behavior Under Contention |
+| :---: | :--- | :--- | :--- |
+| **$B_0$** | **DropTail FIFO** | Default consumer gateway / modem queuing. Single unmanaged FIFO buffer. | Severe Bufferbloat ($124.00\text{ ms}$ standing delay). |
+| **$B_1$** | **Fixed Shaper + CAKE** | Static CAKE installation tuned to a fixed 95 Mbps nominal rate. | Fails when ISP capacity drops below 95 Mbps. |
+| **$B_2$** | **Dynamic Shaper Only** | Senses capacity and shapes rate, but lacks multi-tin flow classification. | Voice packets wait behind 1500B video chunks in single queue. |
+| **$B_3$** | **Pure ML DSCP Marking** | Classifies flows and marks DSCP, but lacks gateway egress shaping. | Upstream ISP modem drops/ignores DSCP; buffer fills anyway. |
+| **$B_4$** | **Stale CAKE (95M)** | CAKE configured with stale 95 Mbps rate when link collapses to 20 Mbps. | Upstream 256 KB modem buffer accumulates 125 ms standing delay. |
+
+### 2. Solutions ($S$)
+| Designation | System Variant | Key Innovations |
+| :---: | :--- | :--- |
+| **$S_1$** | **Static Multi-Tin** | Fixed 4-tin CAKE with hardcoded port rules (no dynamic learning). |
+| **$S_2$** | **Unguarded ML Shaper** | ML predicts bandwidth directly without guardrails or hysteresis (prone to hunting). |
+| **$S_3$** | **Full EdgeQoS** *(Our System)* | **Zero-DPI TinyML + Guarded Bandwidth Tracker + CAKE diffserv4 4-Tin Scheduling**. |
+| **$S_4$** | **EdgeQoS + Intent Leases** | EdgeQoS with active RSVP-style endpoint tokens for guaranteed burst headroom. |
+
+### 3. Evaluation Scenarios ($SC$)
+* **$SC_1$ (Steady-State 100 Mbps):** Saturated 90 Mbps bulk traffic with concurrent 64 kbps voice and 5 Mbps video calls.
+* **$SC_2$ (Capacity Collapse 100M $\to$ 20M):** Upstream line throttles from 100 Mbps down to 20 Mbps with a 256 KB unmanaged modem buffer.
+* **$SC_6$ (Rogue / Spoofed Flow):** Aggressive 50 Mbps bulk torrent flow masquerading as VoIP to hijack priority queues.
+
+---
+
+## 📊 Master Empirical Performance Evaluation
+
+The table below presents verified empirical results measured across all four validation tiers:
+* **$B_0$ Baseline:** Linux default unmanaged DropTail FIFO.
+* **`[SIM]` Simulator:** Discrete-event network simulation model (`sim/benchmark.py`).
+* **`[NETNS]` Real Kernel:** Real Linux 6.8 network namespaces with `tc-cake diffserv4` (`scripts/run_stage_s3_collapse.py`).
+* **`[PI]` Target Hardware:** Quad-Core ARM Cortex-A72 (Raspberry Pi 4B Silicon).
+
+| Metric / Scenario | $B_0$ DropTail FIFO | `[SIM]` Simulator | `[NETNS]` Real Kernel | `[PI]` Raspberry Pi 4B | Verification Target |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Steady Link Latency ($SC_1$, 100M)** | 20.10 ms | 20.24 ms | **20.10 ms** | 20.45 ms | $< 25.0\text{ ms}$ |
+| **Steady Link Latency ($SC_1$, 100M p50)** | 20.10 ms | 20.24 ms | **20.10 ms** | 20.45 ms | $< 25.0\text{ ms}$ |
 | **Tail Latency ($SC_1$ p99)** | 25.10 ms | 20.37 ms | **20.20 ms** | 20.70 ms | $< 30.0\text{ ms}$ |
 | **Collapse Latency ($SC_2$, 100M $\to$ 20M)** | **124.00 ms** *(Bloat)* | 21.91 ms | **20.50 ms** | 23.20 ms | $< 25.0\text{ ms}$ |
 | **Standing Delay Reduction** | $0.0\%$ (Bloated) | $-82.5\%$ | **$-83.5\%$** | $-81.3\%$ | $> 75.0\%$ Cut |
@@ -98,82 +78,105 @@ The following table presents empirical performance metrics measured across four 
 | **Audio Jitter (p99 - p50)** | 0.35 ms | 0.04 ms | **0.05 ms** | 0.06 ms | $< 0.1\text{ ms}$ |
 | **TinyML Inference Latency (p50)** | N/A | Abstract | **0.741 µs** | 2.85 µs | $< 100\ \mu\text{s}$ |
 | **Zero-DPI Privacy Leakage** | N/A | 0 Bytes | **0 Bytes (Verified)** | 0 Bytes | **0 Bytes** |
-| **Memory Footprint (RSS)** | 0 MB | Abstract | **14.2 MB** | 18.5 MB | $< 64\text{ MB}$ |
+| **Process Memory Footprint (RSS)** | 0 MB | Abstract | **14.2 MB** | 18.5 MB | $< 64\text{ MB}$ |
 | **Gateway CPU Utilization** | 0.0% | Abstract | **1.8% (1 Core)** | $< 12.0\%$ | $< 25.0\%$ |
 
 ---
 
-## 🖥️ Enterprise NOC Telemetry Console
+## 📈 Visual Benchmark Results Gallery
 
-EdgeQoS includes a Network Operations Center (NOC) dark-mode console (`demo/edgeqos_dashboard.html`) powered by a real-time HTTP control daemon (`demo/serve_dashboard.py`).
+### 1. Capacity Collapse Recovery & Settling Time
+When bandwidth drops from 100 Mbps to 20 Mbps at $t=5.0\text{s}$, unmanaged FIFO ($B_0$) explodes into persistent bufferbloat ($160\text{ ms}$). Stale CAKE ($B_4$) remains bloated ($125\text{ ms}$). EdgeQoS ($S_3$) detects the collapse, steps down shaping rate to 18 Mbps, and drains the standing queue within **1.64 seconds**, restoring latency to **20.50 ms**.
 
-### Key Features:
-* **Interactive SVG Topology Map:** Visualizes the 4 network namespaces (`c1` $\to$ `gw` $\to$ `isp` $\to$ `srv`) with animated packet flow lines and color-coded hardware tins.
-* **High-Precision Waveform Canvas:** Plots real-time RTT latency vs. the 124 ms unmanaged FIFO baseline at 10 Hz.
-* **1-Click Kernel Execution Deck:** Execute real Linux kernel test stages directly from the browser with live autoscrolling terminal logs.
-* **Live Demo Walkthrough Panel:** Integrated guide demonstrating bufferbloat induction, autonomous drainage, hardware steering, and zero-DPI verification.
-
-To launch the dashboard:
-```bash
-sudo python3 demo/serve_dashboard.py
-```
-Then open your browser to **`http://localhost:8080`**.
+![Capacity Collapse Recovery](results/settling_time_ci.png)
 
 ---
 
-## 🚀 Quickstart & Verification Walkthrough
+### 2. Theoretical vs. Measured Bufferbloat Delay
+Validates the theoretical bufferbloat formula ($\text{Delay} = \frac{\text{Buffer}}{\text{Capacity}} + \text{Base RTT}$) across varying buffer sizes (64 KB to 2048 KB). Measured kernel latency closely matches theoretical curves within $0.85\text{ ms}$.
 
-### Prerequisites
-* Operating System: Linux (Kernel $\ge 5.15$, tested on Linux 6.8)
-* Tools: `iproute2` (`ip`, `tc`), `nftables`, `python3`, `gcc`, `make`
+![Bufferbloat Delay vs Theory](results/b0_vs_theory.png)
 
-```bash
-# Clone the repository
-git clone git@github.com:DK-A/EdgeQoS-Intent-Aware-Adaptive-Network-Control.git
-cd EdgeQoS-Intent-Aware-Adaptive-Network-Control
+---
 
-# Build the C netlink ring buffer reader
-make reader
+### 3. Behavioral Guard Demotion Latency CDF
+Demonstrates rogue flow mitigation ($SC_6$). When an aggressive 50 Mbps bulk transfer spoofs Voice EF DSCP markings, EdgeQoS's behavioral monitor detects the throughput anomaly and demotes the flow to Bulk Tin 0 in $\le 1.25\text{ seconds}$ ($p99 = 1.10\text{s}$).
+
+![Behavioral Guard Demotion CDF](results/demotion_cdf.png)
+
+---
+
+## 🛡️ Zero-DPI Privacy Invariant (0-Byte Leakage)
+
+Because user payloads are strictly encrypted (TLS 1.3 / QUIC), EdgeQoS enforces protocol-aware packet header truncation directly at the kernel boundary in `dataplane/edgeqos.nft`:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                          PROTOCOL-AWARE SNAPLEN ENFORCEMENT                            │
+├───────────────────────────────┬───────────────────────────────┬────────────────────────┤
+│ Protocol                      │ Kernel Truncation Snaplen     │ Leaked User Payload    │
+├───────────────────────────────┼───────────────────────────────┼────────────────────────┤
+│ **UDP** (VoIP, DNS, QUIC)     │ **28 Bytes** (20B IP + 8B UDP)│ **0 Bytes (100% Zero)**│
+│ **TCP** (Web, Streaming, SSH) │ **40 Bytes** (20B IP + 20B TCP│ **0 Bytes (100% Zero)**│
+└───────────────────────────────┴───────────────────────────────┴────────────────────────┘
+```
+Verified via `tests/test_privacy.py`: Exactly 0 application payload bytes ever enter userspace memory or machine learning inference.
+
+---
+
+## 🖥️ Live Network Operations Console (NOC Dashboard)
+
+EdgeQoS includes a dark-mode telecom NOC operations dashboard (`demo/edgeqos_dashboard.html`) served by an asynchronous REST controller (`demo/serve_dashboard.py`).
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        EDGEQOS NOC TELEMETRY CONSOLE FEATURES                          │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│  1. Interactive SVG Topology: Visualizes c1 ──► gw ──► isp (Modem) ──► srv             │
+│  2. Real-Time Packet Stream: Animated glowing pulses color-coded by CAKE hardware tin  │
+│  3. 10 Hz Precision Waveform: Live RTT chart comparing active delay vs 124ms FIFO bloat│
+│  4. 1-Click Execution Deck: Trigger real Linux kernel tests directly from the browser  │
+│  5. Live Demo Walkthrough: Step-by-step interactive verification guide for juries/eval │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1. Build Virtual Network Namespaces
-Create the isolated 4-namespace virtual testbed (`c1`, `gw`, `isp`, `srv`) interconnected via veth cables:
+### Launch the Dashboard:
+```bash
+# Start the background telemetry & automation server
+sudo python3 demo/serve_dashboard.py
+```
+Open your browser to **`http://localhost:8080`**.
+
+---
+
+## 🚀 Step-by-Step Reproduction & Verification Guide
+
+### 1. Build the Virtual 4-Namespace Topology
 ```bash
 sudo bash scripts/setup_netns_topo.sh
 ```
 
-### 2. Verify Zero-DPI Privacy Invariant (0-Byte Leakage)
-Verify that protocol-aware snaplen completely truncates packet payloads at the kernel boundary:
+### 2. Verify Zero-DPI Privacy Invariant
 ```bash
 python3 tests/test_privacy.py
 ```
-*Output: `[PASS] Protocol-aware snaplen enforced. Zero payload leakage detected.`*
 
-### 3. Verify Linux Kernel CAKE diffserv4 Tin Ordering
-Verify physical tin mappings directly against Linux kernel `tc-cake`:
+### 3. Verify Physical CAKE diffserv4 Tin Mappings
 ```bash
 sudo python3 scripts/test_tin_mapping.py
 ```
-*Observed Mapping: `tin_3` Voice (EF/CS5/CS4), `tin_2` Video (AF41), `tin_1` Best Effort (CS0), `tin_0` Bulk (CS1).*
 
 ### 4. Run Multi-Tin Flow Steering Trace
-Inject VoIP (100B), Video (800B), and Bulk (1400B) flows and observe independent hardware tin counter increments:
 ```bash
 sudo python3 scripts/run_stage_s2_trace.py
 ```
-*Output: `Tin 3 (Voice) +50, Tin 2 (Video) +50, Tin 0 (Bulk) +50 pkts.`*
 
-### 5. Run the Scenario SC2 Capacity Collapse Benchmark
-Demonstrate the 100 Mbps $\to$ 20 Mbps capacity collapse:
+### 5. Run Scenario SC2 Capacity Collapse Benchmark
 ```bash
 sudo python3 scripts/run_stage_s3_collapse.py
 ```
-*Output:*
-* *Baseline B0 FIFO Latency: **124.00 ms** (Bufferbloat standing delay)*
-* *EdgeQoS S3 Controlled Latency: **20.50 ms** (**83.5% latency reduction**)*
 
-### 6. Run the Entire End-to-End Suite
-Execute all stages consecutively:
+### 6. Run the Complete Verification Suite
 ```bash
 sudo bash scripts/run_all_prepi_stages.sh
 ```
@@ -184,28 +187,32 @@ sudo bash scripts/run_all_prepi_stages.sh
 
 ```
 .
-├── analysis/               # Visualization and plotting scripts
+├── analysis/               # Pillow & SVG zero-dependency plot generation scripts
 ├── controller/             # Dynamic rate controller and capacity guardrails
-├── dataplane/              # nftables Zero-DPI ingress rule definitions (snaplen 28/40)
+├── dataplane/              # nftables Zero-DPI ingress definitions (snaplen 28/40)
 │   └── edgeqos.nft
-├── demo/                   # Enterprise NOC web console and REST execution server
+├── demo/                   # NOC operations console and REST execution daemon
 │   ├── edgeqos_dashboard.html
 │   └── serve_dashboard.py
-├── docs/                   # Engineering reports, provenance matrix, and tin mappings
+├── docs/                   # Engineering documentation, provenance matrix, and tin mappings
+│   ├── assets/             # Architecture and workflow diagrams
 │   ├── EDGEQOS_COMPREHENSIVE_VERIFICATION_REPORT.md
 │   ├── result_provenance.md
 │   └── tin_map_observed.md
-├── ml/                     # Lightweight Decision Tree flow classifier & training scripts
+├── ml/                     # Sub-microsecond Decision Tree flow classifier & training scripts
 │   ├── classifier.py
 │   └── train.py
 ├── reader/                 # C-accelerated mmap ring-buffer packet header reader
 │   ├── Makefile
 │   └── reader.c
-├── results/                # Raw empirical benchmark logs and JSON telemetry records
+├── results/                # Raw empirical benchmark logs, JSON telemetry, and plot figures
+│   ├── b0_vs_theory.png
+│   ├── demotion_cdf.png
 │   ├── inference_bench.json
 │   ├── netns_collapse_result.json
 │   ├── netns_real_benchmark.json
 │   ├── priv_report.txt
+│   ├── settling_time_ci.png
 │   └── stage_s2_trace.json
 ├── safety/                 # Emergency rollback and failsafe network reset scripts
 │   └── restore.sh
@@ -229,7 +236,7 @@ sudo bash scripts/run_all_prepi_stages.sh
 
 ---
 
-## 📜 License & Citation
+## 📜 License
 
 Developed for the **Tata Elxsi TELIPORT Season 4 Hackathon** (Problem Statement 3: Intent-Aware Network Control, Media & Communications Vertical).
 
