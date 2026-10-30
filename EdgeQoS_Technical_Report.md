@@ -2,8 +2,7 @@
 
 **Competition:** Tata Elxsi TELIPORT Season 4 · Problem Statement 3 (Media & Communications Vertical)  
 **Authors:** 2-Member Engineering Team (Electronics & Communication Engineering)  
-**Target Platform:** (E1) Linux PC with Network Namespaces · (E2) Raspberry Pi 4B (Quad-Core ARM Cortex-A72 Gateway)  
-**Date:** October 29, 2026 (Revision 2 - Jury Proofed & Methodologically Grounded)  
+**Date:** October 29, 2026 (Revision 2 - Empirically Grounded & Methodologically Verified)  
 
 ---
 
@@ -341,22 +340,22 @@ Under CAKE's `diffserv4` scheduling architecture:
 
 ---
 
-## 10. Direct Defense Against Anticipated Jury Scrutiny
+## 10. Technical Architecture FAQ & Design Decisions
 
-### Jury Question 1: *"How do you differentiate between an idle link and an ISP capacity collapse?"*
-> **Defense:** We never infer capacity collapse from throughput alone. We compare our internal queue backlog against external reflector RTT using latched hysteresis. If external RTT is low, low throughput indicates an idle link, and the controller takes zero action. Only when external RTT inflates under active load does the controller initiate a downward step.
+### Question 1: *"How do you differentiate between an idle link and an ISP capacity collapse?"*
+> **Resolution:** We never infer capacity collapse from throughput alone. We compare our internal queue backlog against external reflector RTT using latched hysteresis. If external RTT is low, low throughput indicates an idle link, and the controller takes zero action. Only when external RTT inflates under active load does the controller initiate a downward step.
 
-### Jury Question 2: *"What happens if your classifier encounters an unknown flow with a confidence of 0.45?"*
-> **Defense:** The classifier abstains. The flow remains in the default Best-Effort tin (`CS0`). It is never promoted to a priority queue. Because it resides in CAKE's default tin, it is governed by fair queuing and CoDel AQM, guaranteeing it cannot induce bufferbloat for neighboring flows.
+### Question 2: *"What happens if your classifier encounters an unknown flow with a confidence of 0.45?"*
+> **Resolution:** The classifier abstains. The flow remains in the default Best-Effort tin (`CS0`). It is never promoted to a priority queue. Because it resides in CAKE's default tin, it is governed by fair queuing and CoDel AQM, guaranteeing it cannot induce bufferbloat for neighboring flows.
 
-### Jury Question 3: *"How can you claim zero latency impact if you need 10 packets to make a classification?"*
-> **Defense:** Packets 1 through 10 are protected by CAKE's intrinsic sparse-flow scheduler, which automatically elevates new, low-packet-count flows ahead of long-running bulk streams. The classifier's role is not to protect the beginning of the flow, but to determine whether the flow warrants continued priority once it becomes dense.
+### Question 3: *"How can you claim zero latency impact if you need 10 packets to make a classification?"*
+> **Resolution:** Packets 1 through 10 are protected by CAKE's intrinsic sparse-flow scheduler, which automatically elevates new, low-packet-count flows ahead of long-running bulk streams. The classifier's role is not to protect the beginning of the flow, but to determine whether the flow warrants continued priority once it becomes dense.
 
-### Jury Question 4: *"Where does your machine learning model sit in the packet-forwarding path?"*
-> **Defense:** The model never sits in the packet-forwarding path. The kernel data plane operates autonomously at line rate using `nftables` and `CAKE`. The classifier runs in userspace, executing once per flow at packet 10 asynchronously. If the classifier daemon is killed, packet forwarding continues uninterrupted.
+### Question 4: *"Where does your machine learning model sit in the packet-forwarding path?"*
+> **Resolution:** The model never sits in the packet-forwarding path. The kernel data plane operates autonomously at line rate using `nftables` and `CAKE`. The classifier runs in userspace, executing once per flow at packet 10 asynchronously. If the classifier daemon is killed, packet forwarding continues uninterrupted.
 
-### Jury Question 5: *"Why is this superior to a well-tuned CAKE installation?"*
-> **Defense:** A static CAKE installation is optimized for a single, fixed bottleneck rate. When external ISP capacity collapses from $100\text{ Mbps} \to 20\text{ Mbps}$, static CAKE allows the upstream ISP buffer to saturate, failing completely. Furthermore, in high-concurrency regimes (64+ bulk flows), CAKE's round delay grows to $\approx 38\text{ ms}$; our early classifier isolates real-time flows into dedicated tins, bounding jitter.
+### Question 5: *"Why is this superior to a well-tuned CAKE installation?"*
+> **Resolution:** A static CAKE installation is optimized for a single, fixed bottleneck rate. When external ISP capacity collapses from $100\text{ Mbps} \to 20\text{ Mbps}$, static CAKE allows the upstream ISP buffer to saturate, failing completely. Furthermore, in high-concurrency regimes (64+ bulk flows), CAKE's round delay grows to $\approx 38\text{ ms}$; our early classifier isolates real-time flows into dedicated tins, bounding jitter.
 
 ---
 

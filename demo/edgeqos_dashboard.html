@@ -111,9 +111,9 @@
           <div class="text-[9px] text-slate-400 uppercase font-mono tracking-wider font-semibold">Measured Latency Cut</div>
           <div class="text-emerald-400 font-mono font-black text-sm tabular-nums">-83.5% <span class="text-[10px] text-slate-400 font-normal">(124ms→20.5ms)</span></div>
         </div>
-        <button onclick="toggleJuryDrawer()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-700/60 transition flex items-center gap-1.5 shadow-lg">
-          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <span>Jury Cheat-Sheet</span>
+        <button onclick="toggleDemoGuide()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-700/60 transition flex items-center gap-1.5 shadow-lg">
+          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>Live Demo Walkthrough</span>
         </button>
       </div>
     </header>
@@ -569,54 +569,75 @@
       </div>
     </div>
 
-    <!-- Slide-over Jury Defense Drawer -->
-    <div id="jury-drawer" class="fixed inset-y-0 right-0 max-w-xl w-full bg-[#070c18] border-l border-slate-800 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 p-6 overflow-y-auto space-y-5">
+    <!-- Slide-over Live Demo Walkthrough Drawer -->
+    <div id="demo-guide-drawer" class="fixed inset-y-0 right-0 max-w-xl w-full bg-[#070c18] border-l border-slate-800 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 p-6 overflow-y-auto space-y-5">
       <div class="flex items-center justify-between border-b border-slate-800 pb-4">
         <div>
-          <span class="text-[10px] uppercase font-mono tracking-widest text-cyan-400 font-bold">JURY DEFENSE PLAYBOOK</span>
-          <h2 class="text-lg font-black text-white">Top 4 Technical Defense Answers</h2>
+          <span class="text-[10px] uppercase font-mono tracking-widest text-cyan-400 font-bold">LIVE DEMONSTRATION WALKTHROUGH</span>
+          <h2 class="text-lg font-black text-white">How to Verify Proper System Operation</h2>
         </div>
-        <button onclick="toggleJuryDrawer()" class="text-slate-400 hover:text-white font-mono text-2xl">✕</button>
+        <button onclick="toggleDemoGuide()" class="text-slate-400 hover:text-white font-mono text-2xl">✕</button>
       </div>
 
-      <!-- Q1 -->
+      <!-- Step 1 -->
       <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
-        <h4 class="text-xs font-bold text-cyan-300 font-mono">Q1: Why CAKE over FQ-CoDel?</h4>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-950 text-rose-400 border border-rose-800 font-mono">STEP 1</span>
+          <h4 class="text-xs font-bold text-white">Show Bufferbloat in Baseline FIFO</h4>
+        </div>
         <p class="text-xs text-slate-300 leading-relaxed">
-          FQ-CoDel cannot prevent <strong>inter-flow starvation</strong>: a single video flow can hog bandwidth over voice. CAKE combines Cobalt AQM with <strong>Deficit Round Robin (DRR+)</strong> across 4 hardware tins and per-host isolation, eliminating the starvation problem completely.
+          Select <strong class="text-rose-400">B0: FIFO</strong> and scenario <strong class="text-cyan-300">SC2: 100M → 20M</strong> (or click <em class="text-slate-200">▶ SC2 Collapse Test</em>). At 2.0s, bottleneck capacity collapses to 20 Mbps while client sends 50 Mbps bulk traffic.
         </p>
+        <div class="bg-black/60 p-2.5 rounded-lg font-mono text-[11px] text-rose-400 border border-rose-900/40">
+          ● What to point out: Modem queue fills to <strong>256 KB</strong>. Voice RTT spikes from 20ms to <strong>124.00 ms</strong> with severe latency jitter.
+        </div>
       </div>
 
-      <!-- Q2 -->
+      <!-- Step 2 -->
       <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
-        <h4 class="text-xs font-bold text-cyan-300 font-mono">Q2: Why TinyML instead of Deep Learning (LSTM/Transformer)?</h4>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">STEP 2</span>
+          <h4 class="text-xs font-bold text-white">Show EdgeQoS Autonomous Protection</h4>
+        </div>
         <p class="text-xs text-slate-300 leading-relaxed">
-          Residential gateways run on budget ARM SoCs (Cortex-A53/A72). A deep neural net requires 10-50ms per forward pass and consumes &gt;100MB RAM. Our Decision Tree classifier executes in <strong>0.741 µs (sub-microsecond)</strong> and requires only <strong>14.2 MB RSS</strong>.
+          Switch to <strong class="text-emerald-400">[NETNS] Real</strong>. EdgeQoS actively senses the bottleneck collapse, immediately shaping gateway egress to 18 Mbps (below 20 Mbps bottleneck).
         </p>
+        <div class="bg-black/60 p-2.5 rounded-lg font-mono text-[11px] text-emerald-400 border border-emerald-900/40">
+          ● What to point out: Modem buffer drains to <strong>0.0 KB</strong>. Voice RTT drops from 124ms back down to <strong>20.50 ms (-83.5% latency reduction)</strong>.
+        </div>
       </div>
 
-      <!-- Q3 -->
+      <!-- Step 3 -->
       <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
-        <h4 class="text-xs font-bold text-cyan-300 font-mono">Q3: What if the ISP strips or ignores DSCP bits?</h4>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded text-[10px] font-black bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">STEP 3</span>
+          <h4 class="text-xs font-bold text-white">Show Multi-Tin Hardware Flow Steering</h4>
+        </div>
         <p class="text-xs text-slate-300 leading-relaxed">
-          EdgeQoS shapes egress traffic to <strong>90-95% of bottleneck capacity</strong>. Because the bottleneck buffer inside the ISP modem remains empty, <strong>no queue forms at the ISP</strong>. EdgeQoS schedules packets internally before transmission, rendering ISP DSCP handling irrelevant!
+          Click <strong class="text-cyan-300">▶ S2: Multi-Tin Trace</strong> to send 50 test packets per flow class through the gateway.
         </p>
+        <div class="bg-black/60 p-2.5 rounded-lg font-mono text-[11px] text-cyan-300 border border-cyan-900/40">
+          ● What to point out: Voice packets steer to <strong>Tin 3 (EF)</strong>, Video packets to <strong>Tin 2 (AF41)</strong>, and Bulk downloads to <strong>Tin 0 (CS1)</strong>.
+        </div>
       </div>
 
-      <!-- Q4 -->
+      <!-- Step 4 -->
       <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
-        <h4 class="text-xs font-bold text-cyan-300 font-mono">Q4: How do you mathematically prove 124 ms FIFO standing delay?</h4>
-        <p class="text-xs text-slate-300 leading-relaxed font-mono">
-          Delay = (Buffer Size / Bottleneck Rate) + Propagation RTT<br>
-          = (256 KB * 8 * 1024 b/KB) / 20,000,000 bps + 20 ms<br>
-          = 104.85 ms + 20 ms = <strong>124.85 ms</strong>.<br>
-          Our real kernel measured delay is <strong>124.00 ms</strong> (0.85 ms error).
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded text-[10px] font-black bg-purple-950 text-purple-400 border border-purple-800 font-mono">STEP 4</span>
+          <h4 class="text-xs font-bold text-white">Show Zero-DPI Privacy Invariant</h4>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Click <strong class="text-emerald-300">🛡️ Zero-DPI Audit</strong>. The kernel enforces protocol-aware snaplen (28B UDP, 40B TCP).
         </p>
+        <div class="bg-black/60 p-2.5 rounded-lg font-mono text-[11px] text-emerald-400 border border-emerald-900/40">
+          ● What to point out: Exactly <strong>0 bytes of user payload</strong> ever reach userspace memory.
+        </div>
       </div>
 
       <div class="pt-2">
-        <button onclick="toggleJuryDrawer()" class="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition">
-          Close Playbook
+        <button onclick="toggleDemoGuide()" class="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition">
+          Close Walkthrough
         </button>
       </div>
     </div>
@@ -673,8 +694,8 @@
     let rttHistory = [];
     const maxPoints = 50;
 
-    function toggleJuryDrawer() {
-      const drawer = document.getElementById('jury-drawer');
+    function toggleDemoGuide() {
+      const drawer = document.getElementById('demo-guide-drawer');
       drawer.classList.toggle('translate-x-full');
     }
 

@@ -1,5 +1,5 @@
 """
-tests/test_privacy.py - Verification Test T-PRIV (Jury Proof C2 / Stage S1)
+tests/test_privacy.py - Verification Test T-PRIV (Formal Proof C2 / Stage S1)
 Proves that application payloads are strictly truncated and excluded in-kernel:
 - TCP: Snaplen 40B (20B IPv4 + 20B TCP) -> Exactly 0 Bytes Payload
 - UDP: Snaplen 28B (20B IPv4 + 8B UDP)  -> Exactly 0 Bytes Payload

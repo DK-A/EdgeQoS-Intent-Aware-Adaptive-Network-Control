@@ -223,6 +223,5 @@ Having passed all pre-registration gates in `[NETNS]`, the project is ready for 
 | [`results/netns_collapse_result.json`](file:///home/dk05/Desktop/TATA/results/netns_collapse_result.json) | Scenario SC2 real kernel collapse measurement | **VERIFIED** |
 | [`results/netns_real_benchmark.json`](file:///home/dk05/Desktop/TATA/results/netns_real_benchmark.json) | Steady-state 90 Mbps bulk load latency measurement | **VERIFIED** |
 | [`results/inference_bench.json`](file:///home/dk05/Desktop/TATA/results/inference_bench.json) | 10,000-run decision tree inference microbenchmark | **VERIFIED** |
-| [`docs/result_provenance.md`](file:///home/dk05/Desktop/TATA/docs/result_provenance.md) | Master Result Provenance Matrix (SIM vs NETNS vs PI) | **VERIFIED** |
-| [`docs/JURY_DEFENSE_AND_ARCHITECTURE_GUIDE.md`](file:///home/dk05/Desktop/TATA/docs/JURY_DEFENSE_AND_ARCHITECTURE_GUIDE.md) | Master Jury Defense Manual & Q&A | **VERIFIED** |
+| [`EdgeQoS_Technical_Report.md`](file:///home/dk05/Desktop/TATA/EdgeQoS_Technical_Report.md) | Comprehensive Technical Report & Architecture Specification | **VERIFIED** |
 | [`demo/edgeqos_dashboard.html`](file:///home/dk05/Desktop/TATA/demo/edgeqos_dashboard.html) | Live interactive HTML5 gateway telemetry dashboard | **VERIFIED** |
