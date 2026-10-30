@@ -1,9 +1,11 @@
-Test T-PRIV Execution Report:
-==============================
-Input Packet Total Length: 72 bytes
-Secret Payload Size: 44 bytes
-Kernel Snaplen Limit: 40 bytes
-Parsed Record Header Size: 28 bytes
-Secret Marker Detected in Parsed Record: False (Zero Leakage)
-Extracted Metadata: Proto=17, TotalLen=72, Ports=5060->5060
-Status: PASS (Privacy Invariant Verified)
+Test T-PRIV Execution Report (Protocol-Aware Zero-DPI):
+=======================================================
+UDP Test:
+  Total Packet: 72 bytes | Payload: 44 bytes
+  Kernel Snaplen: 28 bytes (20B IPv4 + 8B UDP)
+  Payload Bytes Copied to Userspace: 0 bytes (100% ZERO LEAKAGE)
+TCP Test:
+  Total Packet: 84 bytes | Payload: 44 bytes
+  Kernel Snaplen: 40 bytes (20B IPv4 + 20B TCP)
+  Payload Bytes Copied to Userspace: 0 bytes (100% ZERO LEAKAGE)
+Status: PASS (Privacy Invariant Verified on UDP & TCP)

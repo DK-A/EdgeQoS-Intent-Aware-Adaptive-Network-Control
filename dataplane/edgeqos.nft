@@ -1,54 +1,58 @@
 #!/usr/sbin/nft -f
 # dataplane/edgeqos.nft - Production EdgeQoS Netfilter Ruleset
 # Tata Elxsi TELIPORT S4 · Problem Statement 3
+# Syntax complies with nftables grammar; protocol-specific snaplen (TCP 40B, UDP 28B)
 
 table inet edgeqos {
-  # 5-tuple timed sets with kernel hardware auto-expiration (60s TTL)
-  set promo_rt {
-    type ipv4_addr . ipv4_addr . inet_proto . inet_service . inet_service;
-    flags timeout;
-    timeout 60s;
-    size 4096;
-  }
+    # 5-tuple timed sets with kernel hardware auto-expiration (60s TTL)
+    set promo_rt {
+        type ipv4_addr . ipv4_addr . inet_proto . inet_service . inet_service
+        flags timeout
+        timeout 60s
+        size 4096
+    }
 
-  set promo_vid {
-    type ipv4_addr . ipv4_addr . inet_proto . inet_service . inet_service;
-    flags timeout;
-    timeout 60s;
-    size 4096;
-  }
+    set promo_vid {
+        type ipv4_addr . ipv4_addr . inet_proto . inet_service . inet_service
+        flags timeout
+        timeout 60s
+        size 4096
+    }
 
-  set promo_blk {
-    type ipv4_addr . ipv4_addr . inet_proto . inet_service . inet_service;
-    flags timeout;
-    timeout 60s;
-    size 4096;
-  }
+    set promo_blk {
+        type ipv4_addr . ipv4_addr . inet_proto . inet_service . inet_service
+        flags timeout
+        timeout 60s
+        size 4096
+    }
 
-  # Host-based temporary intent leases (e.g. 1-hour gaming/conferencing pass)
-  set lease_rt {
-    type ipv4_addr;
-    flags timeout;
-    timeout 3600s;
-  }
+    # Host-based temporary intent leases (e.g. 1-hour gaming/conferencing pass)
+    set lease_rt {
+        type ipv4_addr
+        flags timeout
+        timeout 3600s
+    }
 
-  chain fwd {
-    type filter hook forward priority filter; policy accept;
+    chain forward {
+        type filter hook forward priority 0; policy accept;
 
-    # C16: Anti-spoofing floor - never trust host-supplied DSCP
-    ip dscp set cs0
+        # Anti-spoofing floor: reset incoming external DSCP tags
+        ip dscp set cs0
 
-    # C2: Early flow header inspection only (N <= 10 packets per direction, snaplen = 40B)
-    meta l4proto { tcp, udp } ct direction original ct original packets <= 10 log group 100 snaplen 40
-    meta l4proto { tcp, udp } ct direction reply    ct reply    packets <= 10 log group 100 snaplen 40
+        # Protocol-specific Zero-DPI logging (N <= 10 packets per flow direction)
+        # TCP: 20B IPv4 + 20B TCP header = 40B snaplen (0B payload copied)
+        meta l4proto tcp ct packets <= 10 log prefix "EDGQ:" group 100 snaplen 40
 
-    # C3: diffserv4 marking: EF for Voice, AF41 for Video, CS1 for Bulk
-    ip saddr . ip daddr . meta l4proto . th sport . th dport @promo_rt  ip dscp set ef
-    ip saddr . ip daddr . meta l4proto . th sport . th dport @promo_vid ip dscp set af41
-    ip saddr . ip daddr . meta l4proto . th sport . th dport @promo_blk ip dscp set cs1
+        # UDP: 20B IPv4 + 8B UDP header = 28B snaplen (0B payload copied)
+        meta l4proto udp ct packets <= 10 log prefix "EDGQ:" group 100 snaplen 28
 
-    # User Intent Leases
-    ip saddr @lease_rt ip dscp set ef
-    ip daddr @lease_rt ip dscp set ef
-  }
+        # diffserv4 priority marking: EF for Voice, AF41 for Video, CS1 for Bulk
+        ip saddr . ip daddr . meta l4proto . th sport . th dport @promo_rt  ip dscp set ef
+        ip saddr . ip daddr . meta l4proto . th sport . th dport @promo_vid ip dscp set af41
+        ip saddr . ip daddr . meta l4proto . th sport . th dport @promo_blk ip dscp set cs1
+
+        # User Intent Leases
+        ip saddr @lease_rt ip dscp set ef
+        ip daddr @lease_rt ip dscp set ef
+    }
 }

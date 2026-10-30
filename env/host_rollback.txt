@@ -1,0 +1,11 @@
+=== Host Rollback State Reference (prepi-0) ===
+Date: 2026-10-30
+
+--- tc qdisc show ---
+qdisc noqueue 0: dev lo root refcnt 2
+
+--- ip -br link ---
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP>
+
+--- nft list ruleset ---
+ERROR: Command 'nft list ruleset 2>&1' returned non-zero exit status 1.
