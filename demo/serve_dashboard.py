@@ -17,6 +17,17 @@ PORT = 8080
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(DIRECTORY, ".."))
 
+import sys
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+try:
+    from daemon.edgeqosd.lease import IntentLeaseManager, PROFILES
+    lease_mgr = IntentLeaseManager()
+except Exception as e:
+    lease_mgr = None
+    PROFILES = {}
+
 task_lock = threading.Lock()
 task_state = {
     "running": False,
@@ -124,6 +135,16 @@ class EdgeQoSDashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(status_copy).encode("utf-8"))
             return
 
+        elif self.path == "/api/intent/list":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_cors_headers()
+            self.end_headers()
+            leases = lease_mgr.list_leases() if lease_mgr else []
+            profiles_data = PROFILES if PROFILES else {}
+            self.wfile.write(json.dumps({"leases": leases, "profiles": profiles_data}).encode("utf-8"))
+            return
+
         elif self.path == "/" or self.path == "/dashboard":
             self.path = "/edgeqos_dashboard.html"
             return super().do_GET()
@@ -192,6 +213,66 @@ class EdgeQoSDashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_cors_headers()
             self.end_headers()
             self.wfile.write(json.dumps({"status": "started", "task": task_name}).encode("utf-8"))
+            return
+
+        elif self.path == "/api/intent/grant":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+            try:
+                req = json.loads(body)
+            except Exception:
+                req = {}
+            ip = req.get("ip", "10.0.1.2")
+            profile = req.get("profile", "work-call")
+            duration = int(req.get("duration", 3600))
+            reason = req.get("reason", "Interactive Intent Pass")
+
+            if not lease_mgr:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Lease manager unavailable"}).encode("utf-8"))
+                return
+
+            try:
+                rec = lease_mgr.grant_lease(ip=ip, profile=profile, duration_sec=duration, reason=reason)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "granted", "lease": rec}).encode("utf-8"))
+            except Exception as e:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            return
+
+        elif self.path == "/api/intent/revoke":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+            try:
+                req = json.loads(body)
+            except Exception:
+                req = {}
+            ip = req.get("ip", "")
+
+            if not lease_mgr:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_cors_headers()
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Lease manager unavailable"}).encode("utf-8"))
+                return
+
+            success = lease_mgr.revoke_lease(ip)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_cors_headers()
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "revoked" if success else "not_found", "ip": ip}).encode("utf-8"))
             return
 
         self.send_response(404)

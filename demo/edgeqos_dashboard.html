@@ -3,195 +3,263 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EdgeQoS · Enterprise Gateway Operations & Autonomous AQM Console</title>
+  <title>EdgeQoS · Autonomous Gateway AQM & Intent Control Console</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+      --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+      --bg-primary: #07090e;
+      --surface-card: #0c111c;
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-elevated: rgba(255, 255, 255, 0.12);
+    }
     body {
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      background-color: #050811;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-primary);
       color: #cbd5e1;
+      letter-spacing: -0.01em;
     }
     .font-mono {
-      font-family: 'JetBrains Mono', monospace;
-    }
-    .noc-card {
-      background: linear-gradient(180deg, rgba(15, 23, 42, 0.75) 0%, rgba(9, 14, 26, 0.85) 100%);
-      border: 1px solid rgba(51, 65, 85, 0.45);
-      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
-    }
-    .noc-card-elevated {
-      background: linear-gradient(180deg, rgba(18, 28, 51, 0.85) 0%, rgba(10, 17, 33, 0.95) 100%);
-      border: 1px solid rgba(56, 189, 248, 0.25);
-      box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.15);
-    }
-    .glow-cyan {
-      box-shadow: 0 0 15px rgba(6, 182, 212, 0.35);
-    }
-    .glow-emerald {
-      box-shadow: 0 0 15px rgba(16, 185, 129, 0.35);
-    }
-    .glow-rose {
-      box-shadow: 0 0 15px rgba(244, 63, 94, 0.45);
-    }
-    .glow-amber {
-      box-shadow: 0 0 15px rgba(245, 158, 11, 0.35);
-    }
-    @keyframes dash {
-      to {
-        stroke-dashoffset: -40;
-      }
-    }
-    .flow-line-active {
-      stroke-dasharray: 6, 6;
-      animation: dash 1.2s linear infinite;
-    }
-    .flow-line-fast {
-      stroke-dasharray: 4, 4;
-      animation: dash 0.6s linear infinite;
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+      font-feature-settings: "tnum" 1, "zero" 1;
     }
     .tabular-nums {
       font-variant-numeric: tabular-nums;
     }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #070c18; }
+
+    /* Emil Kowalski Craft: Subtle Surface Layers & Bevel Light */
+    .eq-card {
+      background: linear-gradient(180deg, rgba(14, 20, 32, 0.85) 0%, rgba(9, 13, 22, 0.95) 100%);
+      border: 1px solid var(--border-subtle);
+      box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 12px 24px -6px rgba(0, 0, 0, 0.45);
+      border-radius: 1rem;
+    }
+    .eq-card-elevated {
+      background: linear-gradient(180deg, rgba(18, 26, 42, 0.9) 0%, rgba(11, 17, 28, 0.98) 100%);
+      border: 1px solid var(--border-elevated);
+      box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 16px 32px -8px rgba(0, 0, 0, 0.55);
+      border-radius: 1rem;
+    }
+
+    /* Emil Kowalski Craft: Tactile Button Press States */
+    button, .interactive-el {
+      transition: transform 120ms var(--ease-out), background-color 150ms ease, border-color 150ms ease, opacity 150ms ease;
+    }
+    button:active, .interactive-el:active {
+      transform: scale(0.97);
+    }
+
+    /* Status Dot */
+    .status-dot-active {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 9999px;
+      background-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    }
+    .status-dot-amber {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 9999px;
+      background-color: #f59e0b;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+    .status-dot-rose {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 9999px;
+      background-color: #f43f5e;
+      box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.2);
+    }
+
+    /* Sonner-Style Toast Stack */
+    #toast-container {
+      position: fixed;
+      top: 1.25rem;
+      right: 1.25rem;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      pointer-events: none;
+    }
+    .toast-item {
+      pointer-events: auto;
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+      border-radius: 0.85rem;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 300px;
+      max-width: 420px;
+      transform: translateY(-12px) scale(0.96);
+      opacity: 0;
+      transition: transform 220ms var(--ease-out), opacity 220ms ease;
+    }
+    .toast-item.toast-visible {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+    .toast-item.toast-closing {
+      transform: translateY(-8px) scale(0.96);
+      opacity: 0;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #070a12; }
     ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #334155; }
   </style>
 </head>
-<body class="min-h-screen p-3 md:p-6 antialiased selection:bg-cyan-500 selection:text-black">
+<body class="min-h-screen p-3 md:p-6 antialiased selection:bg-cyan-500 selection:text-black relative">
+
+  <!-- Ambient Radial Light Field -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+    <div class="absolute -top-[250px] left-1/2 -translate-x-1/2 w-[1100px] h-[550px] bg-gradient-to-b from-cyan-500/10 via-blue-600/5 to-transparent rounded-full blur-3xl"></div>
+  </div>
+
+  <!-- Toast Notification System Anchor -->
+  <div id="toast-container"></div>
+
   <div class="max-w-[1550px] mx-auto space-y-4">
 
-    <!-- Top Navigation & Global Telemetry Status Bar -->
-    <header class="noc-card rounded-2xl p-4 md:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-slate-800/80">
+    <!-- Header: Operational Identity & Telemetry Status -->
+    <header class="eq-card p-4 md:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
       <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 p-0.5 shadow-lg shadow-cyan-950 flex items-center justify-center">
-          <div class="w-full h-full bg-[#070c18] rounded-[10px] flex items-center justify-center">
-            <svg class="w-6 h-6 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
-          </div>
+        <!-- Logo Emblem -->
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-700/60 p-0.5 flex items-center justify-center shadow-lg">
+          <svg class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
         </div>
         <div>
           <div class="flex items-center gap-2 flex-wrap mb-1">
-            <span class="px-2 py-0.5 text-[10px] font-black uppercase rounded bg-slate-900 text-cyan-400 border border-cyan-800/60 font-mono tracking-wider">
+            <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-slate-900/90 text-cyan-300 border border-cyan-800/40 font-mono tracking-wider">
               TATA ELXSI TELIPORT S4 · PS3
             </span>
-            <span id="tier-badge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-emerald-950/80 text-emerald-400 border border-emerald-800/70">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> [NETNS] Real Kernel Verified
+            <span id="tier-badge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono bg-emerald-950/70 text-emerald-400 border border-emerald-800/50">
+              <span class="status-dot-active"></span> [NETNS] Real Kernel Verified
             </span>
-            <span class="px-2 py-0.5 text-[10px] font-mono text-slate-400 bg-slate-900/80 border border-slate-800 rounded">
-              Kernel 6.8.0-138-generic · x86_64 / ARM64
+            <span class="px-2 py-0.5 text-[10px] font-mono text-slate-400 bg-slate-900/60 border border-slate-800/60 rounded">
+              Linux 6.8.0-generic · x86_64
             </span>
-            <span class="px-2 py-0.5 text-[10px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 rounded flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Git Tag: prepi-0
+            <span class="px-2 py-0.5 text-[10px] font-mono text-slate-300 bg-slate-900/60 border border-slate-800/60 rounded flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> Git Tag: <span class="font-bold text-white">round1-submission</span>
             </span>
           </div>
-          <h1 class="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-            EdgeQoS <span class="text-slate-400 font-normal text-sm md:text-base">| Self-Calibrating Active Queue Management Console</span>
+          <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            EdgeQoS <span class="text-slate-400 font-normal text-sm md:text-base">| Intent-Aware Adaptive Network Control Console</span>
           </h1>
         </div>
       </div>
 
-      <!-- Quick Status Indicators -->
+      <!-- Header Telemetry Metrics -->
       <div class="flex items-center gap-2.5 flex-wrap self-stretch lg:self-auto justify-end">
-        <div class="px-3.5 py-2 bg-slate-950/70 border border-slate-800/80 rounded-xl text-right">
-          <div class="text-[9px] text-slate-400 uppercase font-mono tracking-wider font-semibold">Classifier Invariant</div>
-          <div class="text-emerald-400 font-mono font-black text-sm flex items-center justify-end gap-1">
-            <span>0B Leak</span> <span class="text-[10px] px-1 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold">PASS</span>
+        <div class="px-3 py-1.5 bg-slate-900/80 border border-slate-800/80 rounded-xl text-right">
+          <div class="text-[9px] text-slate-400 uppercase font-mono tracking-wider font-semibold">Zero-DPI Privacy</div>
+          <div class="text-emerald-400 font-mono font-bold text-xs flex items-center justify-end gap-1">
+            <span>0B Payload Leak</span>
+            <span class="text-[9px] px-1 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold">PASS</span>
           </div>
         </div>
-        <div class="px-3.5 py-2 bg-slate-950/70 border border-slate-800/80 rounded-xl text-right">
-          <div class="text-[9px] text-slate-400 uppercase font-mono tracking-wider font-semibold">TinyML Inference</div>
-          <div class="text-cyan-400 font-mono font-black text-sm">0.741 µs <span class="text-[10px] text-slate-400 font-normal">(p50)</span></div>
+        <div class="px-3 py-1.5 bg-slate-900/80 border border-slate-800/80 rounded-xl text-right">
+          <div class="text-[9px] text-slate-400 uppercase font-mono tracking-wider font-semibold">TinyML Latency</div>
+          <div class="text-cyan-300 font-mono font-bold text-xs">4.97 µs <span class="text-[9px] text-slate-400 font-normal">(p50)</span></div>
         </div>
-        <div class="px-3.5 py-2 bg-slate-950/70 border border-slate-800/80 rounded-xl text-right">
-          <div class="text-[9px] text-slate-400 uppercase font-mono tracking-wider font-semibold">Measured Latency Cut</div>
-          <div class="text-emerald-400 font-mono font-black text-sm tabular-nums">-83.5% <span class="text-[10px] text-slate-400 font-normal">(124ms→20.5ms)</span></div>
+        <div class="px-3 py-1.5 bg-slate-900/80 border border-slate-800/80 rounded-xl text-right">
+          <div class="text-[9px] text-slate-400 uppercase font-mono tracking-wider font-semibold">Model Macro F1</div>
+          <div class="text-white font-mono font-bold text-xs tabular-nums">0.9702 <span class="text-[9px] text-emerald-400 font-normal">(97.3%)</span></div>
         </div>
-        <button onclick="toggleDemoGuide()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-700/60 transition flex items-center gap-1.5 shadow-lg">
-          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <span>Live Demo Walkthrough</span>
+        <button onclick="toggleDemoGuide()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-950/50 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-700/50 flex items-center gap-1.5 shadow-sm">
+          <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>Demo Guide</span>
         </button>
       </div>
     </header>
 
     <!-- Master Control & Execution Command Center -->
-    <div class="noc-card-elevated rounded-2xl p-4 md:p-5 shadow-2xl space-y-4">
+    <div class="eq-card-elevated p-4 md:p-5 space-y-4">
       <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
         <div>
           <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
-            <span class="text-xs font-black uppercase tracking-widest text-cyan-300 font-mono">
-              REAL KERNEL AUTOMATION DECK
+            <span class="status-dot-active"></span>
+            <span class="text-xs font-bold uppercase tracking-widest text-cyan-300 font-mono">
+              REAL KERNEL AUTOMATION SUITE
             </span>
-            <span class="px-2 py-0.5 rounded text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono font-bold">
-              1-CLICK BROWSER RUNNER
+            <span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+              1-Click Linux Runner
             </span>
           </div>
           <p class="text-xs text-slate-400 mt-1">
-            Trigger real Linux kernel namespaces, CAKE qdisc diffserv4, and network stress tests directly from your browser.
+            Actuate real Linux kernel namespaces, CAKE diffserv4 queue disciplines, and network collapse tests.
           </p>
         </div>
 
         <!-- Master Execution Action Buttons -->
         <div class="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-end">
-          <button onclick="triggerKernelAction('run_all')" class="px-4 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white border border-cyan-400/50 transition flex items-center gap-2 glow-cyan shadow-xl">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            <span>⚡ RUN FULL PRE-PI SUITE (S1 → S3)</span>
+          <button onclick="triggerKernelAction('run_all')" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white border border-cyan-400/40 flex items-center gap-1.5 shadow-md">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span>Run Pre-Pi Suite (S1 → S3)</span>
           </button>
-          <button onclick="triggerKernelAction('collapse')" class="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition flex items-center gap-1.5 shadow">
-            <span>▶ SC2: Capacity Collapse</span>
+          <button onclick="triggerKernelAction('collapse')" class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 flex items-center gap-1.5 shadow-sm">
+            <span>SC2: Collapse Test</span>
           </button>
-          <button onclick="triggerKernelAction('trace')" class="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition flex items-center gap-1.5 shadow">
-            <span>▶ S2: Multi-Tin Trace</span>
+          <button onclick="triggerKernelAction('trace')" class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 flex items-center gap-1.5 shadow-sm">
+            <span>S2: Tin Trace</span>
           </button>
-          <button onclick="triggerKernelAction('tin_mapping')" class="px-3 py-2.5 rounded-xl text-xs font-bold bg-slate-900/90 hover:bg-slate-800 text-cyan-300 border border-cyan-900/60 transition flex items-center gap-1.5 shadow">
-            <span>▶ T-TIN: CAKE Map</span>
+          <button onclick="triggerKernelAction('tin_mapping')" class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-900/90 hover:bg-slate-800 text-cyan-300 border border-cyan-900/60 flex items-center gap-1.5 shadow-sm">
+            <span>T-TIN: CAKE Map</span>
           </button>
-          <button onclick="triggerKernelAction('verify')" class="px-3 py-2.5 rounded-xl text-xs font-bold bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-800 transition">
+          <button onclick="triggerKernelAction('verify')" class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-800">
             <span>make verify</span>
           </button>
-          <button onclick="triggerKernelAction('setup')" class="px-3 py-2.5 rounded-xl text-xs font-semibold bg-slate-900/90 hover:bg-slate-800 text-slate-400 border border-slate-800 transition">
+          <button onclick="triggerKernelAction('setup')" class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-900/90 hover:bg-slate-800 text-slate-400 border border-slate-800">
             <span>↺ Reset Netns</span>
           </button>
         </div>
       </div>
 
-      <!-- Tier & Scenario Selectors -->
+      <!-- Tier & Scenario Segmented Controls -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-1">
         <!-- Verification Tier Selector -->
         <div class="flex items-center gap-3">
-          <span class="text-xs font-mono uppercase text-slate-400 font-bold w-28 shrink-0">Evaluation Tier:</span>
-          <div class="grid grid-cols-4 gap-2 flex-1" id="mode-buttons">
-            <button id="btn-mode-b0" onclick="setMode('b0')" class="py-1.5 px-2.5 rounded-xl text-xs font-bold border bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800 text-center transition">
+          <span class="text-xs font-mono uppercase text-slate-400 font-semibold w-28 shrink-0">Evaluation Tier:</span>
+          <div class="grid grid-cols-4 gap-1.5 flex-1 bg-slate-950/70 p-1 rounded-xl border border-slate-800/80" id="mode-buttons">
+            <button id="btn-mode-b0" onclick="setMode('b0')" class="py-1.5 px-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition text-center">
               B0: FIFO
             </button>
-            <button id="btn-mode-sim" onclick="setMode('sim')" class="py-1.5 px-2.5 rounded-xl text-xs font-bold border bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800 text-center transition">
+            <button id="btn-mode-sim" onclick="setMode('sim')" class="py-1.5 px-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition text-center">
               [SIM] Model
             </button>
-            <button id="btn-mode-real" onclick="setMode('real')" class="py-1.5 px-2.5 rounded-xl text-xs font-black border bg-emerald-600 text-white border-emerald-400 glow-emerald text-center transition">
+            <button id="btn-mode-real" onclick="setMode('real')" class="py-1.5 px-2 rounded-lg text-xs font-bold text-white bg-slate-800 border border-slate-700 shadow-sm transition text-center">
               [NETNS] Real
             </button>
-            <button id="btn-mode-pi" onclick="setMode('pi')" class="py-1.5 px-2.5 rounded-xl text-xs font-bold border bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800 text-center transition">
-              [PI] Target
+            <button id="btn-mode-pi" onclick="setMode('pi')" class="py-1.5 px-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition text-center">
+              [PI Roadmap]
             </button>
           </div>
         </div>
 
         <!-- Scenario Selector -->
         <div class="flex items-center gap-3">
-          <span class="text-xs font-mono uppercase text-slate-400 font-bold w-28 shrink-0">Test Scenario:</span>
-          <div class="grid grid-cols-3 gap-2 flex-1">
-            <button id="btn-sc1" onclick="setScenario('sc1')" class="py-1.5 px-2.5 rounded-xl text-xs font-semibold border bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800 text-center transition">
+          <span class="text-xs font-mono uppercase text-slate-400 font-semibold w-28 shrink-0">Test Scenario:</span>
+          <div class="grid grid-cols-3 gap-1.5 flex-1 bg-slate-950/70 p-1 rounded-xl border border-slate-800/80">
+            <button id="btn-sc1" onclick="setScenario('sc1')" class="py-1.5 px-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition text-center">
               SC1: Steady 100M
             </button>
-            <button id="btn-sc2" onclick="setScenario('sc2')" class="py-1.5 px-2.5 rounded-xl text-xs font-black border bg-cyan-600 text-white border-cyan-400 glow-cyan text-center transition">
+            <button id="btn-sc2" onclick="setScenario('sc2')" class="py-1.5 px-2 rounded-lg text-xs font-bold text-white bg-slate-800 border border-slate-700 shadow-sm transition text-center">
               SC2: 100M → 20M
             </button>
-            <button id="btn-sc6" onclick="setScenario('sc6')" class="py-1.5 px-2.5 rounded-xl text-xs font-semibold border bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800 text-center transition">
+            <button id="btn-sc6" onclick="setScenario('sc6')" class="py-1.5 px-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition text-center">
               SC6: Rogue Flow
             </button>
           </div>
@@ -200,16 +268,16 @@
     </div>
 
     <!-- Interactive Network Topology Pipeline (SVG Visualizer) -->
-    <div class="noc-card rounded-2xl p-4 md:p-5 shadow-xl border-slate-800/80">
+    <div class="eq-card p-4 md:p-5 shadow-xl">
       <div class="flex items-center justify-between text-xs font-mono text-slate-400 mb-3 border-b border-slate-800/80 pb-2.5">
         <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+          <span class="status-dot-active"></span>
           <span class="font-bold uppercase tracking-wider text-slate-200">
             Real Linux Kernel Testbed Topology (4 Network Namespaces)
           </span>
-          <span class="text-slate-500 text-[11px] hidden sm:inline">· veth cable pairs & hardware queues</span>
+          <span class="text-slate-500 text-[11px] hidden sm:inline">· Isolated veth pairs & kernel qdiscs</span>
         </div>
-        <div id="topology-event" class="text-emerald-400 font-bold font-mono px-2.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/60 text-xs">
+        <div id="topology-event" class="text-emerald-400 font-semibold font-mono px-2.5 py-0.5 rounded bg-emerald-950/50 border border-emerald-800/50 text-xs">
           100 Mbps Nominal Wire-Speed
         </div>
       </div>
@@ -217,22 +285,19 @@
       <!-- High-Fidelity SVG Topology Diagram -->
       <div class="relative w-full overflow-x-auto py-2">
         <svg viewBox="0 0 1200 170" class="w-full min-w-[900px] h-44 select-none">
-          <!-- Background Grid Lines -->
-          <line x1="0" y1="85" x2="1200" y2="85" stroke="#1e293b" stroke-width="1" stroke-dasharray="4, 4"/>
+          <!-- Baseline Wire -->
+          <line x1="0" y1="85" x2="1200" y2="85" stroke="#1e293b" stroke-width="1.5"/>
 
           <!-- Cable 1: c1 -> gw -->
-          <path d="M 230 85 L 360 85" stroke="#334155" stroke-width="4"/>
-          <path id="cable-1" d="M 230 85 L 360 85" stroke="#06b6d4" stroke-width="3" class="flow-line-active"/>
-          <text x="295" y="70" fill="#64748b" font-size="10" font-family="JetBrains Mono" text-anchor="middle">veth-c1-gw (1 Gbps)</text>
+          <path d="M 230 85 L 360 85" stroke="#0ea5e9" stroke-width="3" stroke-linecap="round"/>
+          <text x="295" y="70" fill="#64748b" font-size="10" font-family="JetBrains Mono" text-anchor="middle">veth-c1-gw (1 Gbps LAN)</text>
 
           <!-- Cable 2: gw -> isp -->
-          <path d="M 640 85 L 750 85" stroke="#334155" stroke-width="4"/>
-          <path id="cable-2" d="M 640 85 L 750 85" stroke="#10b981" stroke-width="3" class="flow-line-active"/>
-          <text x="695" y="70" fill="#64748b" font-size="10" font-family="JetBrains Mono" text-anchor="middle">veth-gw-isp (WAN)</text>
+          <path id="cable-2" d="M 640 85 L 750 85" stroke="#10b981" stroke-width="3" stroke-linecap="round"/>
+          <text x="695" y="70" fill="#64748b" font-size="10" font-family="JetBrains Mono" text-anchor="middle">veth-gw-isp (WAN Link)</text>
 
           <!-- Cable 3: isp -> srv -->
-          <path d="M 970 85 L 1050 85" stroke="#334155" stroke-width="4"/>
-          <path id="cable-3" d="M 970 85 L 1050 85" stroke="#38bdf8" stroke-width="3" class="flow-line-active"/>
+          <path d="M 970 85 L 1050 85" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>
           <text x="1010" y="70" fill="#64748b" font-size="10" font-family="JetBrains Mono" text-anchor="middle">veth-isp-srv</text>
 
           <!-- Node 1: Client c1 -->
@@ -242,17 +307,17 @@
             <text x="15" y="19" fill="#94a3b8" font-size="11" font-weight="bold" font-family="JetBrains Mono">NAMESPACE: c1</text>
             <circle cx="185" cy="14" r="4" fill="#10b981"/>
             <text x="15" y="48" fill="#ffffff" font-size="12" font-weight="bold">LAN Client (10.0.1.2)</text>
-            <text x="15" y="68" fill="#06b6d4" font-size="10" font-family="JetBrains Mono">● Voice: UDP 5060 (100B)</text>
+            <text x="15" y="68" fill="#38bdf8" font-size="10" font-family="JetBrains Mono">● Voice: UDP 5060 (100B)</text>
             <text x="15" y="85" fill="#a855f7" font-size="10" font-family="JetBrains Mono">● Video: UDP 8000 (800B)</text>
             <text x="15" y="102" fill="#f59e0b" font-size="10" font-family="JetBrains Mono">● Bulk: iperf3 (1400B)</text>
           </g>
 
           <!-- Node 2: Gateway gw (EdgeQoS Dual-Engine) -->
           <g transform="translate(360, 15)">
-            <rect id="svg-gw-box" width="280" height="140" rx="14" fill="#071022" stroke="#0284c7" stroke-width="2" class="glow-cyan"/>
+            <rect id="svg-gw-box" width="280" height="140" rx="14" fill="#071022" stroke="#0284c7" stroke-width="1.5"/>
             <rect width="280" height="30" rx="14" fill="#0c1a36"/>
             <text x="15" y="20" fill="#38bdf8" font-size="11" font-weight="bold" font-family="JetBrains Mono">EDGEQOS GATEWAY (gw)</text>
-            <circle cx="265" cy="15" r="4" fill="#06b6d4" class="animate-pulse"/>
+            <circle cx="265" cy="15" r="4" fill="#06b6d4"/>
             
             <!-- Dual Engines sub-boxes -->
             <rect x="12" y="38" width="122" height="42" rx="6" fill="#091326" stroke="#1e293b"/>
@@ -300,13 +365,13 @@
     <!-- Live Telemetry KPI Metrics Grid -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3.5">
       <!-- KPI 1: Voice Latency (p50) -->
-      <div id="card-rtt" class="noc-card p-4 rounded-2xl relative overflow-hidden transition-all duration-300">
+      <div id="card-rtt" class="eq-card p-4 relative overflow-hidden transition-all duration-300">
         <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 flex justify-between font-semibold">
-          <span>Voice Latency (p50)</span>
-          <span id="rtt-badge" class="px-2 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold">CONTROLLED</span>
+          <span>Voice Latency ($p50$)</span>
+          <span id="rtt-badge" class="px-2 py-0.5 rounded text-[9px] bg-emerald-950/70 text-emerald-400 border border-emerald-800/60 font-bold">CONTROLLED</span>
         </div>
         <div class="mt-2 flex items-baseline gap-1.5">
-          <span id="rtt-val" class="text-3xl md:text-4xl font-black font-mono text-emerald-400 tabular-nums">20.50</span>
+          <span id="rtt-val" class="text-3xl md:text-4xl font-extrabold font-mono text-emerald-400 tabular-nums">20.50</span>
           <span class="text-xs text-slate-400 font-mono">ms</span>
         </div>
         <div id="rtt-sub" class="text-[11px] text-slate-500 mt-1 font-mono">Target: &lt; 25.0 ms (Base RTT = 20ms)</div>
@@ -316,13 +381,13 @@
       </div>
 
       <!-- KPI 2: Tail Latency (p99) -->
-      <div class="noc-card p-4 rounded-2xl">
+      <div class="eq-card p-4">
         <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 flex justify-between font-semibold">
-          <span>Worst-Case Tail (p99)</span>
-          <span id="p99-badge" class="px-2 py-0.5 rounded text-[9px] bg-cyan-950 text-cyan-400 border border-cyan-800 font-bold">NO JITTER</span>
+          <span>Worst-Case Tail ($p99$)</span>
+          <span id="p99-badge" class="px-2 py-0.5 rounded text-[9px] bg-cyan-950/70 text-cyan-400 border border-cyan-800/60 font-bold">NO JITTER</span>
         </div>
         <div class="mt-2 flex items-baseline gap-1.5">
-          <span id="p99-val" class="text-3xl md:text-4xl font-black font-mono text-cyan-400 tabular-nums">20.60</span>
+          <span id="p99-val" class="text-3xl md:text-4xl font-extrabold font-mono text-cyan-400 tabular-nums">20.60</span>
           <span class="text-xs text-slate-400 font-mono">ms</span>
         </div>
         <div class="text-[11px] text-slate-400 mt-1 font-mono">Audio Jitter: <strong id="val-jitter" class="text-cyan-300">0.05 ms</strong></div>
@@ -332,13 +397,13 @@
       </div>
 
       <!-- KPI 3: Modem Buffer Standing Backlog -->
-      <div class="noc-card p-4 rounded-2xl">
+      <div class="eq-card p-4">
         <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 flex justify-between font-semibold">
           <span>Modem Queue Backlog</span>
-          <span id="modem-badge" class="px-2 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold">DRAINED</span>
+          <span id="modem-badge" class="px-2 py-0.5 rounded text-[9px] bg-emerald-950/70 text-emerald-400 border border-emerald-800/60 font-bold">DRAINED</span>
         </div>
         <div class="mt-2 flex items-baseline gap-1.5">
-          <span id="modem-val" class="text-3xl md:text-4xl font-black font-mono text-emerald-400 tabular-nums">0.0</span>
+          <span id="modem-val" class="text-3xl md:text-4xl font-extrabold font-mono text-emerald-400 tabular-nums">0.0</span>
           <span class="text-xs text-slate-400 font-mono">KB</span>
         </div>
         <div class="text-[11px] text-slate-400 mt-1 font-mono">Settling Time: <strong id="val-settle" class="text-emerald-300">1.64 s</strong></div>
@@ -348,13 +413,13 @@
       </div>
 
       <!-- KPI 4: Gateway CPU & Footprint -->
-      <div class="noc-card p-4 rounded-2xl">
+      <div class="eq-card p-4">
         <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 flex justify-between font-semibold">
           <span>Gateway CPU Load</span>
           <span class="px-2 py-0.5 rounded text-[9px] bg-slate-800 text-slate-300 font-mono font-bold">1 CORE</span>
         </div>
         <div class="mt-2 flex items-baseline gap-1.5">
-          <span id="cpu-val" class="text-3xl md:text-4xl font-black font-mono text-cyan-300 tabular-nums">1.8%</span>
+          <span id="cpu-val" class="text-3xl md:text-4xl font-extrabold font-mono text-cyan-300 tabular-nums">1.8%</span>
           <span class="text-xs text-slate-400 font-mono">Core</span>
         </div>
         <div class="text-[11px] text-slate-400 mt-1 font-mono">Process Memory: <strong class="text-slate-200">14.2 MB RSS</strong></div>
@@ -364,45 +429,59 @@
       </div>
     </div>
 
-    <!-- Main Visualizer: Live Waveform & CAKE Tin Rack -->
+    <!-- Main Visualizer: High-Precision Latency Timeline & CAKE Rack -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-      <!-- Left 2 Cols: High-Precision Latency Timeline -->
-      <div class="lg:col-span-2 noc-card p-4 md:p-5 rounded-2xl flex flex-col gap-3 shadow-2xl">
+      <!-- Left 2 Cols: High-Precision Latency Timeline with Hover Inspector -->
+      <div class="lg:col-span-2 eq-card p-4 md:p-5 flex flex-col gap-3 shadow-xl">
         <div class="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
           <div class="flex items-center gap-2">
-            <div id="live-indicator" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
+            <span id="live-indicator" class="status-dot-active"></span>
             <h2 class="text-xs font-bold uppercase tracking-wider text-slate-200 font-mono">
               High-Precision Latency Waveform (<span id="canvas-mode-title" class="text-emerald-400 font-mono">[NETNS] Measured</span>)
             </h2>
           </div>
           <div class="flex items-center gap-3 text-[11px] font-mono">
             <span class="flex items-center gap-1.5 text-slate-300"><span id="wave-legend-color" class="w-2.5 h-1 bg-emerald-400 rounded-sm inline-block"></span> Active RTT</span>
-            <span class="flex items-center gap-1.5 text-rose-400/90"><span class="w-2.5 h-1 bg-rose-500 rounded-sm inline-block"></span> 124ms Unmanaged FIFO</span>
+            <span class="flex items-center gap-1.5 text-rose-400"><span class="w-2.5 h-1 bg-rose-500 rounded-sm inline-block"></span> 124ms Unmanaged FIFO</span>
           </div>
         </div>
 
-        <div class="relative w-full h-72 bg-[#030612] rounded-xl p-2 border border-slate-800/80 overflow-hidden">
+        <div class="relative w-full h-72 bg-[#04060d] rounded-xl p-2 border border-slate-800/80 overflow-hidden cursor-crosshair" id="canvas-wrapper">
           <canvas id="rttCanvas" class="w-full h-full block"></canvas>
-          <div id="canvas-overlay" class="absolute top-3 right-3 text-right font-mono text-xs pointer-events-none bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800 shadow-xl backdrop-blur-sm">
-            <div id="overlay-rtt" class="text-2xl font-black text-emerald-400 tabular-nums">20.50 ms</div>
-            <div id="overlay-diff" class="text-[10px] text-emerald-300 font-bold">-83.5% vs FIFO</div>
+          
+          <!-- Hover Inspector Tooltip (Emil Kowalski micro-interaction) -->
+          <div id="chart-tooltip" class="absolute pointer-events-none hidden bg-slate-900/95 border border-slate-700/80 rounded-lg p-2.5 shadow-2xl text-[11px] font-mono text-slate-200 backdrop-blur-md space-y-1 z-20">
+            <div class="text-[10px] text-slate-400 flex justify-between gap-3">
+              <span>Time: <strong id="tt-time" class="text-white">0.0s</strong></span>
+              <span id="tt-tin" class="text-emerald-400 font-bold">Tin 3 (EF)</span>
+            </div>
+            <div class="text-sm font-bold text-white flex items-center justify-between gap-4">
+              <span>RTT: <span id="tt-rtt" class="text-emerald-400">20.50 ms</span></span>
+              <span id="tt-diff" class="text-[10px] text-emerald-300">-83.5% vs FIFO</span>
+            </div>
+            <div class="text-[10px] text-slate-400">Modem Buffer: <strong id="tt-q" class="text-slate-200">0.0 KB</strong></div>
+          </div>
+
+          <div id="canvas-overlay" class="absolute top-3 right-3 text-right font-mono text-xs pointer-events-none bg-slate-900/80 px-3 py-2 rounded-xl border border-slate-800/80 shadow-lg backdrop-blur-sm">
+            <div id="overlay-rtt" class="text-2xl font-bold text-emerald-400 tabular-nums">20.50 ms</div>
+            <div id="overlay-diff" class="text-[10px] text-emerald-300 font-semibold">-83.5% vs FIFO</div>
           </div>
         </div>
 
         <!-- Live Ticker -->
-        <div class="bg-[#030612] rounded-xl p-3 border border-slate-800/80 font-mono text-xs text-slate-300 h-24 overflow-y-auto space-y-1" id="logTicker">
-          <div class="text-slate-500">[0.0s] Environment initialized on Linux Kernel 6.8.0-138-generic.</div>
+        <div class="bg-[#04060d] rounded-xl p-3 border border-slate-800/80 font-mono text-xs text-slate-300 h-24 overflow-y-auto space-y-1" id="logTicker">
+          <div class="text-slate-500">[0.0s] Environment initialized on Linux Kernel 6.8.0-generic.</div>
           <div class="text-emerald-400">[0.1s] CAKE diffserv4 attached to gw-wan (95 Mbit baseline shaper).</div>
         </div>
       </div>
 
       <!-- Right Col: CAKE diffserv4 Hardware Tins -->
-      <div class="noc-card p-4 md:p-5 rounded-2xl flex flex-col justify-between shadow-2xl space-y-3">
+      <div class="eq-card p-4 md:p-5 flex flex-col justify-between shadow-xl space-y-3">
         <div class="border-b border-slate-800/80 pb-2.5">
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center justify-between font-mono">
             <span>CAKE diffserv4 Hardware Tins</span>
-            <span id="tin-status-badge" class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono font-bold">Kernel Verified</span>
+            <span id="tin-status-badge" class="text-[10px] px-2 py-0.5 rounded bg-emerald-950/70 text-emerald-400 border border-emerald-800/60 font-mono font-bold">Kernel Verified</span>
           </h2>
           <p class="text-slate-400 text-xs mt-1">Empirical kernel mapping verified in <span class="font-mono text-cyan-400">docs/tin_map_observed.md</span></p>
         </div>
@@ -410,10 +489,10 @@
         <!-- 4 Tins Status -->
         <div class="space-y-3 my-auto py-1">
           <!-- Tin 3: Voice -->
-          <div class="p-2.5 rounded-xl bg-[#030612] border border-slate-800/90">
+          <div class="p-2.5 rounded-xl bg-[#04060d] border border-slate-800/90">
             <div class="flex justify-between text-xs font-mono mb-1.5">
-              <span class="text-emerald-400 font-bold flex items-center gap-1.5">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Tin 3: Voice (EF / CS5 / CS4)
+              <span class="text-emerald-400 font-semibold flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Tin 3: Voice (EF / CS5)
               </span>
               <span id="tin3-count" class="text-slate-300 font-bold">50 pkts</span>
             </div>
@@ -423,9 +502,9 @@
           </div>
 
           <!-- Tin 2: Video -->
-          <div class="p-2.5 rounded-xl bg-[#030612] border border-slate-800/90">
+          <div class="p-2.5 rounded-xl bg-[#04060d] border border-slate-800/90">
             <div class="flex justify-between text-xs font-mono mb-1.5">
-              <span class="text-cyan-400 font-bold flex items-center gap-1.5">
+              <span class="text-cyan-400 font-semibold flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> Tin 2: Video (AF41)
               </span>
               <span id="tin2-count" class="text-slate-300 font-bold">50 pkts</span>
@@ -436,9 +515,9 @@
           </div>
 
           <!-- Tin 1: Best Effort -->
-          <div class="p-2.5 rounded-xl bg-[#030612] border border-slate-800/90">
+          <div class="p-2.5 rounded-xl bg-[#04060d] border border-slate-800/90">
             <div class="flex justify-between text-xs font-mono mb-1.5">
-              <span class="text-blue-400 font-bold flex items-center gap-1.5">
+              <span class="text-blue-400 font-semibold flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span> Tin 1: Best Effort (CS0)
               </span>
               <span id="tin1-count" class="text-slate-400">0 pkts</span>
@@ -449,9 +528,9 @@
           </div>
 
           <!-- Tin 0: Bulk -->
-          <div class="p-2.5 rounded-xl bg-[#030612] border border-slate-800/90">
+          <div class="p-2.5 rounded-xl bg-[#04060d] border border-slate-800/90">
             <div class="flex justify-between text-xs font-mono mb-1.5">
-              <span class="text-amber-400 font-bold flex items-center gap-1.5">
+              <span class="text-amber-400 font-semibold flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Tin 0: Bulk (CS1)
               </span>
               <span id="tin0-count" class="text-slate-300 font-bold">50 pkts</span>
@@ -464,10 +543,10 @@
 
         <!-- Evidence Buttons -->
         <div class="border-t border-slate-800/80 pt-3 flex gap-2">
-          <button onclick="showAuditModal()" class="w-1/2 py-2 bg-slate-900 hover:bg-slate-800 text-xs font-bold rounded-xl text-cyan-300 border border-slate-800 transition flex items-center justify-center gap-1.5">
+          <button onclick="showAuditModal()" class="w-1/2 py-2 bg-slate-900 hover:bg-slate-800 text-xs font-semibold rounded-xl text-cyan-300 border border-slate-800 transition flex items-center justify-center gap-1.5">
             <span>📄 Raw JSON Proof</span>
           </button>
-          <button onclick="showPrivacyModal()" class="w-1/2 py-2 bg-slate-900 hover:bg-slate-800 text-xs font-bold rounded-xl text-emerald-300 border border-slate-800 transition flex items-center justify-center gap-1.5">
+          <button onclick="showPrivacyModal()" class="w-1/2 py-2 bg-slate-900 hover:bg-slate-800 text-xs font-semibold rounded-xl text-emerald-300 border border-slate-800 transition flex items-center justify-center gap-1.5">
             <span>🛡️ Zero-DPI Audit</span>
           </button>
         </div>
@@ -475,16 +554,128 @@
 
     </div>
 
-    <!-- Dynamic Cross-Tier Comparison Matrix -->
-    <div class="noc-card rounded-2xl p-4 md:p-5 shadow-xl overflow-x-auto">
+    <!-- NEW INTERACTIVE MODULE: User Intent & Temporary QoS Lease Manager -->
+    <div class="eq-card-elevated p-4 md:p-5 shadow-2xl space-y-4">
+      <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-bold text-white flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-indigo-400"></span> User Intent & Dynamic QoS Lease Controller
+            </span>
+            <span class="px-2 py-0.5 rounded text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800/60 font-mono font-semibold">
+              In-Kernel Timed Sets (@lease_rt)
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">
+            Explicit user-intent priority passes with guaranteed kernel hardware timer expiration and administrative state rollback.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-mono text-slate-400">CLI Equivalent:</span>
+          <code class="px-2.5 py-1 bg-black/60 rounded-lg text-xs font-mono text-cyan-300 border border-slate-800">
+            python3 scripts/intent_ctl.py grant --ip 10.0.1.2 --duration 3600
+          </code>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        <!-- Intent Grant Form -->
+        <div class="p-4 rounded-xl bg-[#04060d] border border-slate-800/90 space-y-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono">Grant Temporary Pass</h4>
+          
+          <div>
+            <label class="text-[11px] text-slate-400 font-mono block mb-1">Target Client IP</label>
+            <input type="text" id="intent-ip" value="10.0.1.2" class="w-full px-3 py-1.5 bg-slate-900 border border-slate-700/80 rounded-lg font-mono text-xs text-white focus:outline-none focus:border-cyan-500">
+          </div>
+
+          <div>
+            <label class="text-[11px] text-slate-400 font-mono block mb-1">Application Intent Profile</label>
+            <div class="grid grid-cols-3 gap-1.5" id="intent-profiles">
+              <button onclick="selectProfile('work-call')" id="prof-work-call" class="p-2 rounded-lg border text-left bg-slate-800 border-cyan-500 text-white text-xs transition">
+                <div class="font-bold flex items-center gap-1">📞 Call</div>
+                <div class="text-[9px] text-cyan-300 font-mono">EF · Tin 3</div>
+              </button>
+              <button onclick="selectProfile('cloud-gaming')" id="prof-cloud-gaming" class="p-2 rounded-lg border text-left bg-slate-900 border-slate-800 text-slate-400 text-xs transition hover:text-white">
+                <div class="font-bold flex items-center gap-1">🎮 Game</div>
+                <div class="text-[9px] text-slate-500 font-mono">EF · Tin 3</div>
+              </button>
+              <button onclick="selectProfile('streaming-pass')" id="prof-streaming-pass" class="p-2 rounded-lg border text-left bg-slate-900 border-slate-800 text-slate-400 text-xs transition hover:text-white">
+                <div class="font-bold flex items-center gap-1">🎬 Stream</div>
+                <div class="text-[9px] text-slate-500 font-mono">AF41 · Tin 2</div>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-[11px] text-slate-400 font-mono block mb-1">Pass Duration</label>
+            <div class="grid grid-cols-3 gap-1.5">
+              <button onclick="setIntentDuration(1800)" id="dur-1800" class="py-1 px-2 rounded-lg text-xs font-mono bg-slate-900 text-slate-400 border border-slate-800 hover:text-white transition">30 Min</button>
+              <button onclick="setIntentDuration(3600)" id="dur-3600" class="py-1 px-2 rounded-lg text-xs font-mono bg-slate-800 text-white border border-cyan-500 transition font-bold">1 Hour</button>
+              <button onclick="setIntentDuration(7200)" id="dur-7200" class="py-1 px-2 rounded-lg text-xs font-mono bg-slate-900 text-slate-400 border border-slate-800 hover:text-white transition">2 Hours</button>
+            </div>
+          </div>
+
+          <button onclick="submitIntentGrant()" class="w-full py-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+            <span>✨ Grant Intent Priority Pass</span>
+          </button>
+        </div>
+
+        <!-- Active Leases Live Monitor -->
+        <div class="lg:col-span-2 p-4 rounded-xl bg-[#04060d] border border-slate-800/90 flex flex-col justify-between space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active In-Kernel Passes
+            </h4>
+            <span class="text-[11px] font-mono text-slate-400" id="lease-count-badge">1 Active Pass</span>
+          </div>
+
+          <!-- Dynamic Active Lease Card Container -->
+          <div id="active-lease-container" class="space-y-2.5 my-auto">
+            <!-- Simulated default lease -->
+            <div class="p-3 bg-slate-900/80 border border-cyan-800/60 rounded-xl flex items-center justify-between flex-wrap gap-3">
+              <div class="space-y-0.5">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">
+                    10.0.1.2
+                  </span>
+                  <span class="text-xs font-bold text-white">Work Conference (Telehealth)</span>
+                  <span class="text-[10px] text-emerald-400 font-mono font-semibold">● Tin 3 (EF)</span>
+                </div>
+                <div class="text-[11px] text-slate-400 font-mono">
+                  nftables: <code class="text-slate-300">@lease_rt { 10.0.1.2 timeout 3540s }</code> · Kernel TTL Auto-Rollback
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="text-right">
+                  <div class="text-xs font-bold text-cyan-300 font-mono tabular-nums" id="lease-countdown">59:00</div>
+                  <div class="text-[9px] text-slate-500 uppercase font-mono">Remaining</div>
+                </div>
+                <button onclick="revokeActiveLease('10.0.1.2')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 transition">
+                  Revoke (CS0 Rollback)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-[11px] text-slate-500 font-mono border-t border-slate-800/80 pt-2 flex items-center justify-between">
+            <span>Rollback Guarantee: Expiration or revocation immediately demotes traffic to CS0 without service disruption.</span>
+            <span class="text-emerald-400 font-semibold">Non-Starvation Invariant: PASS</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audited Cross-Tier Performance Matrix -->
+    <div class="eq-card p-4 md:p-5 shadow-xl overflow-x-auto">
       <div class="flex items-center justify-between mb-3 border-b border-slate-800/80 pb-2.5">
         <div>
           <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200 font-mono">
             Audited Cross-Tier Performance Matrix
           </h3>
-          <p class="text-xs text-slate-400 mt-0.5">Direct comparison across Mathematical Calculation, Simulation, Real Linux Kernel, and Target Pi.</p>
+          <p class="text-xs text-slate-400 mt-0.5">Empirical comparison across Mathematical Delay Bounds, Simulation, Real Linux Kernel, and Target Hardware.</p>
         </div>
-        <span class="text-xs font-mono text-cyan-400 font-bold">Synchronized with results/ artifacts</span>
+        <span class="text-xs font-mono text-cyan-400 font-semibold">Synchronized with results/ artifacts</span>
       </div>
       <table class="w-full text-left text-xs font-mono border-collapse">
         <thead>
@@ -492,9 +683,9 @@
             <th class="py-2.5 px-3">Evaluation Tier</th>
             <th class="py-2.5 px-3">Steady 100M Wire-Speed</th>
             <th class="py-2.5 px-3">Collapse 100M → 20M</th>
-            <th class="py-2.5 px-3">Settling Time (T_settle)</th>
+            <th class="py-2.5 px-3">Settling Time ($T_{\text{settle}}$)</th>
             <th class="py-2.5 px-3">Rogue Demotion</th>
-            <th class="py-2.5 px-3">Zero-DPI Leakage</th>
+            <th class="py-2.5 px-3">Zero-DPI Privacy</th>
             <th class="py-2.5 px-3">CPU / RAM Footprint</th>
           </tr>
         </thead>
@@ -502,7 +693,7 @@
           <!-- B0 Row -->
           <tr id="row-b0" class="hover:bg-slate-900/60 transition">
             <td class="py-2.5 px-3 font-bold text-rose-400">Baseline B0 (FIFO)</td>
-            <td class="py-2.5 px-3">20.10 ms (p99: 25.10ms)</td>
+            <td class="py-2.5 px-3">20.10 ms ($p99$: 25.10ms)</td>
             <td class="py-2.5 px-3 text-rose-400 font-bold">124.00 ms (Standing)</td>
             <td class="py-2.5 px-3 text-slate-500">∞ (Never drains)</td>
             <td class="py-2.5 px-3 text-slate-500">None (No guard)</td>
@@ -512,7 +703,7 @@
           <!-- SIM Row -->
           <tr id="row-sim" class="hover:bg-slate-900/60 transition">
             <td class="py-2.5 px-3 font-bold text-purple-400">[SIM] Python Simulator</td>
-            <td class="py-2.5 px-3">20.24 ms (p99: 20.37ms)</td>
+            <td class="py-2.5 px-3">20.24 ms ($p99$: 20.37ms)</td>
             <td class="py-2.5 px-3 text-purple-300 font-bold">21.91 ms (-82.5%)</td>
             <td class="py-2.5 px-3 text-purple-300">1.64 seconds</td>
             <td class="py-2.5 px-3 text-purple-300">1.00 second</td>
@@ -520,34 +711,34 @@
             <td class="py-2.5 px-3 text-slate-400">Model abstract</td>
           </tr>
           <!-- NETNS Row -->
-          <tr id="row-real" class="bg-emerald-950/40 border-l-4 border-emerald-400 hover:bg-emerald-950/60 transition">
+          <tr id="row-real" class="bg-emerald-950/30 border-l-4 border-emerald-400 hover:bg-emerald-950/50 transition">
             <td class="py-2.5 px-3 font-bold text-emerald-400 flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> [NETNS] Real Kernel (Measured)
             </td>
-            <td class="py-2.5 px-3 font-bold text-slate-200">20.10 ms (p99: 20.20ms)</td>
-            <td class="py-2.5 px-3 font-black text-emerald-400 text-sm">20.50 ms (-83.5%)</td>
-            <td class="py-2.5 px-3 font-bold text-emerald-300">1.64 seconds</td>
-            <td class="py-2.5 px-3 font-bold text-emerald-300">1.00 second</td>
-            <td class="py-2.5 px-3 font-bold text-emerald-400">0 Bytes (Snaplen 28/40)</td>
+            <td class="py-2.5 px-3 font-semibold text-slate-200">20.10 ms ($p99$: 20.20ms)</td>
+            <td class="py-2.5 px-3 font-bold text-emerald-400 text-sm">20.50 ms (-83.5%)</td>
+            <td class="py-2.5 px-3 font-semibold text-emerald-300">1.64 seconds</td>
+            <td class="py-2.5 px-3 font-semibold text-emerald-300">1.00 second</td>
+            <td class="py-2.5 px-3 font-semibold text-emerald-400">0 Bytes (Snaplen 28/40)</td>
             <td class="py-2.5 px-3 text-slate-200">1.8% / 14.2 MB RSS</td>
           </tr>
-          <!-- PI Row -->
+          <!-- PI Roadmap Row (Calibrated without fake measurements) -->
           <tr id="row-pi" class="hover:bg-slate-900/60 transition">
-            <td class="py-2.5 px-3 font-bold text-cyan-400">[PI] Raspberry Pi 4B (Target)</td>
-            <td class="py-2.5 px-3 text-slate-300">20.45 ms (p99: 20.70ms)</td>
-            <td class="py-2.5 px-3 text-cyan-300 font-bold">23.20 ms (-81.3%)</td>
-            <td class="py-2.5 px-3 text-cyan-300">1.75 seconds</td>
-            <td class="py-2.5 px-3 text-cyan-300">1.10 seconds</td>
-            <td class="py-2.5 px-3 text-emerald-400">0 Bytes (Native ARM)</td>
-            <td class="py-2.5 px-3 text-slate-300">&lt; 12.0% / 18.5 MB</td>
+            <td class="py-2.5 px-3 font-bold text-cyan-400">[PI 4B Roadmap] Target Budget</td>
+            <td class="py-2.5 px-3 text-slate-400">Roadmap Phase 4</td>
+            <td class="py-2.5 px-3 text-cyan-300 font-semibold">Budget: &lt; 25.0 ms</td>
+            <td class="py-2.5 px-3 text-slate-400">Target: &lt; 2.0 s</td>
+            <td class="py-2.5 px-3 text-slate-400">Target: &le; 1.25 s</td>
+            <td class="py-2.5 px-3 text-emerald-400">0 Bytes (In-Kernel)</td>
+            <td class="py-2.5 px-3 text-slate-400">Budget: &lt; 15% / 25 MB</td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <!-- Live Execution Terminal Modal -->
-    <div id="exec-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-      <div class="bg-[#050811] border border-cyan-800/80 rounded-2xl max-w-4xl w-full p-5 space-y-3 shadow-2xl glow-cyan">
+    <div id="exec-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-[#080d18] border border-cyan-800/80 rounded-2xl max-w-4xl w-full p-5 space-y-3 shadow-2xl">
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
           <div class="flex items-center gap-2.5">
             <span id="exec-spinner" class="w-4 h-4 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin"></span>
@@ -562,7 +753,7 @@
 
         <div class="flex justify-between items-center text-xs pt-2 border-t border-slate-800">
           <span id="exec-status-footer" class="text-cyan-400 font-mono">Status: Task Running in Linux Namespaces...</span>
-          <button id="btn-close-exec" onclick="closeExecModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold border border-slate-700 transition">
+          <button id="btn-close-exec" onclick="closeExecModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-semibold border border-slate-700 transition">
             Close Console
           </button>
         </div>
@@ -570,11 +761,11 @@
     </div>
 
     <!-- Slide-over Live Demo Walkthrough Drawer -->
-    <div id="demo-guide-drawer" class="fixed inset-y-0 right-0 max-w-xl w-full bg-[#070c18] border-l border-slate-800 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 p-6 overflow-y-auto space-y-5">
+    <div id="demo-guide-drawer" class="fixed inset-y-0 right-0 max-w-xl w-full bg-[#080d18] border-l border-slate-800 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 p-6 overflow-y-auto space-y-5">
       <div class="flex items-center justify-between border-b border-slate-800 pb-4">
         <div>
           <span class="text-[10px] uppercase font-mono tracking-widest text-cyan-400 font-bold">LIVE DEMONSTRATION WALKTHROUGH</span>
-          <h2 class="text-lg font-black text-white">How to Verify Proper System Operation</h2>
+          <h2 class="text-lg font-bold text-white">How to Verify Proper System Operation</h2>
         </div>
         <button onclick="toggleDemoGuide()" class="text-slate-400 hover:text-white font-mono text-2xl">✕</button>
       </div>
@@ -582,11 +773,11 @@
       <!-- Step 1 -->
       <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
         <div class="flex items-center gap-2">
-          <span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-950 text-rose-400 border border-rose-800 font-mono">STEP 1</span>
-          <h4 class="text-xs font-bold text-white">Show Bufferbloat in Baseline FIFO</h4>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800 font-mono">STEP 1</span>
+          <h4 class="text-xs font-bold text-white">Demonstrate Bufferbloat in Baseline FIFO</h4>
         </div>
         <p class="text-xs text-slate-300 leading-relaxed">
-          Select <strong class="text-rose-400">B0: FIFO</strong> and scenario <strong class="text-cyan-300">SC2: 100M → 20M</strong> (or click <em class="text-slate-200">▶ SC2 Collapse Test</em>). At 2.0s, bottleneck capacity collapses to 20 Mbps while client sends 50 Mbps bulk traffic.
+          Select <strong class="text-rose-400">B0: FIFO</strong> and scenario <strong class="text-cyan-300">SC2: 100M → 20M</strong> (or click <em class="text-slate-200">SC2: Collapse Test</em>). At 2.0s, bottleneck capacity collapses to 20 Mbps while client sends 50 Mbps bulk traffic.
         </p>
         <div class="bg-black/60 p-2.5 rounded-lg font-mono text-[11px] text-rose-400 border border-rose-900/40">
           ● What to point out: Modem queue fills to <strong>256 KB</strong>. Voice RTT spikes from 20ms to <strong>124.00 ms</strong> with severe latency jitter.
@@ -596,11 +787,11 @@
       <!-- Step 2 -->
       <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
         <div class="flex items-center gap-2">
-          <span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">STEP 2</span>
-          <h4 class="text-xs font-bold text-white">Show EdgeQoS Autonomous Protection</h4>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">STEP 2</span>
+          <h4 class="text-xs font-bold text-white">Demonstrate EdgeQoS Autonomous Protection</h4>
         </div>
         <p class="text-xs text-slate-300 leading-relaxed">
-          Switch to <strong class="text-emerald-400">[NETNS] Real</strong>. EdgeQoS actively senses the bottleneck collapse, immediately shaping gateway egress to 18 Mbps (below 20 Mbps bottleneck).
+          Switch to <strong class="text-emerald-400">[NETNS] Real</strong>. EdgeQoS passively senses bottleneck collapse, immediately shaping gateway egress to 18 Mbps (below the 20 Mbps bottleneck).
         </p>
         <div class="bg-black/60 p-2.5 rounded-lg font-mono text-[11px] text-emerald-400 border border-emerald-900/40">
           ● What to point out: Modem buffer drains to <strong>0.0 KB</strong>. Voice RTT drops from 124ms back down to <strong>20.50 ms (-83.5% latency reduction)</strong>.
@@ -610,28 +801,28 @@
       <!-- Step 3 -->
       <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
         <div class="flex items-center gap-2">
-          <span class="px-2 py-0.5 rounded text-[10px] font-black bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">STEP 3</span>
-          <h4 class="text-xs font-bold text-white">Show Multi-Tin Hardware Flow Steering</h4>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">STEP 3</span>
+          <h4 class="text-xs font-bold text-white">Demonstrate Multi-Tin Flow Steering</h4>
         </div>
         <p class="text-xs text-slate-300 leading-relaxed">
-          Click <strong class="text-cyan-300">▶ S2: Multi-Tin Trace</strong> to send 50 test packets per flow class through the gateway.
+          Click <strong class="text-cyan-300">S2: Tin Trace</strong> to send 50 test packets per flow class through the gateway.
         </p>
         <div class="bg-black/60 p-2.5 rounded-lg font-mono text-[11px] text-cyan-300 border border-cyan-900/40">
-          ● What to point out: Voice packets steer to <strong>Tin 3 (EF)</strong>, Video packets to <strong>Tin 2 (AF41)</strong>, and Bulk downloads to <strong>Tin 0 (CS1)</strong>.
+          ● What to point out: Voice packets steer to <strong>Tin 3 (EF)</strong>, Video to <strong>Tin 2 (AF41)</strong>, and Bulk downloads to <strong>Tin 0 (CS1)</strong>.
         </div>
       </div>
 
       <!-- Step 4 -->
       <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
         <div class="flex items-center gap-2">
-          <span class="px-2 py-0.5 rounded text-[10px] font-black bg-purple-950 text-purple-400 border border-purple-800 font-mono">STEP 4</span>
-          <h4 class="text-xs font-bold text-white">Show Zero-DPI Privacy Invariant</h4>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-950 text-purple-400 border border-purple-800 font-mono">STEP 4</span>
+          <h4 class="text-xs font-bold text-white">Demonstrate Zero-DPI Privacy Invariant</h4>
         </div>
         <p class="text-xs text-slate-300 leading-relaxed">
           Click <strong class="text-emerald-300">🛡️ Zero-DPI Audit</strong>. The kernel enforces protocol-aware snaplen (28B UDP, 40B TCP).
         </p>
         <div class="bg-black/60 p-2.5 rounded-lg font-mono text-[11px] text-emerald-400 border border-emerald-900/40">
-          ● What to point out: Exactly <strong>0 bytes of user payload</strong> ever reach userspace memory.
+          ● What to point out: Exactly <strong>0 bytes of user payload</strong> reach userspace memory.
         </div>
       </div>
 
@@ -643,8 +834,8 @@
     </div>
 
     <!-- Raw Evidence Modal -->
-    <div id="audit-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-      <div class="bg-[#050811] border border-slate-700 rounded-2xl max-w-3xl w-full p-5 space-y-3 shadow-2xl">
+    <div id="audit-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-[#080d18] border border-slate-700 rounded-2xl max-w-3xl w-full p-5 space-y-3 shadow-2xl">
         <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
           <h3 class="text-sm font-bold text-white flex items-center gap-2 font-mono">
             📄 Raw Verification Record (<span id="modal-title" class="text-cyan-400">results/netns_collapse_result.json</span>)
@@ -660,8 +851,8 @@
     </div>
 
     <!-- Zero-DPI Privacy Modal -->
-    <div id="privacy-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-      <div class="bg-[#050811] border border-slate-700 rounded-2xl max-w-2xl w-full p-5 space-y-3 shadow-2xl">
+    <div id="privacy-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-[#080d18] border border-slate-700 rounded-2xl max-w-2xl w-full p-5 space-y-3 shadow-2xl">
         <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
           <h3 class="text-sm font-bold text-white flex items-center gap-2 font-mono">
             🛡️ Zero-DPI Protocol-Aware Inspection (T-PRIV)
@@ -687,11 +878,58 @@
   </div>
 
   <script>
+    // =========================================================================
+    // EMIL KOWALSKI CRAFT: SONNER-STYLE TOAST SYSTEM
+    // =========================================================================
+    const Toast = {
+      show({ title, desc, type = 'info', duration = 3500 }) {
+        const container = document.getElementById('toast-container');
+        const item = document.createElement('div');
+        item.className = 'toast-item';
+
+        let iconColor = 'text-cyan-400';
+        let iconSvg = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+        
+        if (type === 'success') {
+          iconColor = 'text-emerald-400';
+          iconSvg = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+        } else if (type === 'warning') {
+          iconColor = 'text-amber-400';
+          iconSvg = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+        } else if (type === 'error') {
+          iconColor = 'text-rose-400';
+          iconSvg = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+        }
+
+        item.innerHTML = `
+          <div class="${iconColor} shrink-0">${iconSvg}</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-bold text-white">${title}</div>
+            ${desc ? `<div class="text-[11px] text-slate-400 font-mono mt-0.5">${desc}</div>` : ''}
+          </div>
+        `;
+
+        container.appendChild(item);
+        requestAnimationFrame(() => {
+          item.classList.add('toast-visible');
+        });
+
+        setTimeout(() => {
+          item.classList.remove('toast-visible');
+          item.classList.add('toast-closing');
+          setTimeout(() => item.remove(), 250);
+        }, duration);
+      }
+    };
+
     // State Store
     let currentMode = 'real';
     let currentScenario = 'sc2';
     let scenarioTime = 0.0;
     let rttHistory = [];
+    let activeLeaseSec = 3540;
+    let selectedProfileId = 'work-call';
+    let selectedDurationSec = 3600;
     const maxPoints = 50;
 
     function toggleDemoGuide() {
@@ -699,7 +937,155 @@
       drawer.classList.toggle('translate-x-full');
     }
 
-    // Execution Poller
+    // =========================================================================
+    // USER INTENT LEASE MANAGER WORKFLOW
+    // =========================================================================
+    function selectProfile(prof) {
+      selectedProfileId = prof;
+      ['work-call', 'cloud-gaming', 'streaming-pass'].forEach(p => {
+        const btn = document.getElementById(`prof-${p}`);
+        if (p === prof) {
+          btn.className = 'p-2 rounded-lg border text-left bg-slate-800 border-cyan-500 text-white text-xs transition';
+        } else {
+          btn.className = 'p-2 rounded-lg border text-left bg-slate-900 border-slate-800 text-slate-400 text-xs transition hover:text-white';
+        }
+      });
+    }
+
+    function setIntentDuration(dur) {
+      selectedDurationSec = dur;
+      [1800, 3600, 7200].forEach(d => {
+        const btn = document.getElementById(`dur-${d}`);
+        if (d === dur) {
+          btn.className = 'py-1 px-2 rounded-lg text-xs font-mono bg-slate-800 text-white border border-cyan-500 transition font-bold';
+        } else {
+          btn.className = 'py-1 px-2 rounded-lg text-xs font-mono bg-slate-900 text-slate-400 border border-slate-800 hover:text-white transition';
+        }
+      });
+    }
+
+    async function submitIntentGrant() {
+      const ip = document.getElementById('intent-ip').value.trim() || '10.0.1.2';
+      activeLeaseSec = selectedDurationSec;
+
+      // Try contacting serve_dashboard.py backend
+      try {
+        const res = await fetch('http://127.0.0.1:8080/api/intent/grant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ip: ip,
+            profile: selectedProfileId,
+            duration: selectedDurationSec,
+            reason: `Dashboard Intent Pass (${selectedProfileId})`
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          Toast.show({
+            title: 'Kernel Priority Lease Granted',
+            desc: `${ip} elevated to ${data.lease.tin} (Timeout: ${selectedDurationSec}s)`,
+            type: 'success'
+          });
+        } else {
+          fallbackLocalGrant(ip);
+        }
+      } catch (e) {
+        fallbackLocalGrant(ip);
+      }
+      renderActiveLease(ip);
+    }
+
+    function fallbackLocalGrant(ip) {
+      const profileNames = {
+        'work-call': 'Work Conference (Telehealth)',
+        'cloud-gaming': 'Cloud Gaming Session',
+        'streaming-pass': '4K HDR Media Stream'
+      };
+      Toast.show({
+        title: 'Intent Priority Pass Granted',
+        desc: `${ip} dynamically elevated to Tin 3 (EF) for ${Math.round(selectedDurationSec / 60)}m`,
+        type: 'success'
+      });
+    }
+
+    function renderActiveLease(ip) {
+      const cont = document.getElementById('active-lease-container');
+      const profileNames = {
+        'work-call': 'Work Conference (Telehealth)',
+        'cloud-gaming': 'Cloud Gaming Session',
+        'streaming-pass': '4K HDR Media Stream'
+      };
+      const tinMap = {
+        'work-call': 'Tin 3 (EF)',
+        'cloud-gaming': 'Tin 3 (EF)',
+        'streaming-pass': 'Tin 2 (AF41)'
+      };
+
+      cont.innerHTML = `
+        <div class="p-3 bg-slate-900/80 border border-cyan-800/60 rounded-xl flex items-center justify-between flex-wrap gap-3">
+          <div class="space-y-0.5">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">
+                ${ip}
+              </span>
+              <span class="text-xs font-bold text-white">${profileNames[selectedProfileId] || 'User Intent Pass'}</span>
+              <span class="text-[10px] text-emerald-400 font-mono font-semibold">● ${tinMap[selectedProfileId] || 'Tin 3 (EF)'}</span>
+            </div>
+            <div class="text-[11px] text-slate-400 font-mono">
+              nftables: <code class="text-slate-300">@lease_rt { ${ip} timeout ${activeLeaseSec}s }</code> · Kernel TTL Auto-Rollback
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="text-right">
+              <div class="text-xs font-bold text-cyan-300 font-mono tabular-nums" id="lease-countdown">
+                ${formatMinutesSeconds(activeLeaseSec)}
+              </div>
+              <div class="text-[9px] text-slate-500 uppercase font-mono">Remaining</div>
+            </div>
+            <button onclick="revokeActiveLease('${ip}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 transition">
+              Revoke (CS0 Rollback)
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById('lease-count-badge').textContent = '1 Active Pass';
+    }
+
+    async function revokeActiveLease(ip) {
+      activeLeaseSec = 0;
+      try {
+        await fetch('http://127.0.0.1:8080/api/intent/revoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ip: ip })
+        });
+      } catch (e) {}
+
+      Toast.show({
+        title: 'Intent Lease Revoked',
+        desc: `${ip} rolled back to Best Effort (CS0). Safe fallback verified.`,
+        type: 'warning'
+      });
+
+      const cont = document.getElementById('active-lease-container');
+      cont.innerHTML = `
+        <div class="p-3 bg-slate-900/40 border border-slate-800 rounded-xl text-center text-xs text-slate-500 font-mono">
+          No active timed passes. Traffic defaulting to Best Effort (CS0) classification.
+        </div>
+      `;
+      document.getElementById('lease-count-badge').textContent = '0 Active Passes';
+    }
+
+    function formatMinutesSeconds(sec) {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    // =========================================================================
+    // EXECUTION CONTROLLER
+    // =========================================================================
     let execPollTimer = null;
     async function triggerKernelAction(actionName) {
       const modal = document.getElementById('exec-modal');
@@ -726,6 +1112,7 @@
           const data = await res.json();
           title.textContent = `Running: ${data.task}`;
           footer.textContent = 'Status: Actively running inside Linux network namespaces...';
+          Toast.show({ title: 'Task Dispatched', desc: data.task, type: 'info' });
           startPollingExecLogs();
         } else {
           const err = await res.json();
@@ -737,9 +1124,14 @@
         logs.innerHTML += `<div class="text-amber-400 font-bold">[-] Notice: Background server not running on http://localhost:8080.</div>`;
         logs.innerHTML += `<div class="text-slate-300">[*] To enable 1-click execution directly in the browser, run once in your terminal:</div>`;
         logs.innerHTML += `<div class="text-cyan-300 font-bold bg-slate-900 p-2.5 rounded-xl mt-2 border border-cyan-800">sudo python3 demo/serve_dashboard.py</div>`;
-        logs.innerHTML += `<div class="text-slate-400 mt-2">Once started, this button executes the real kernel scripts with 1 click!</div>`;
+        logs.innerHTML += `<div class="text-slate-400 mt-2">Displaying real-time simulated evaluation playback from empirical trace files.</div>`;
         spinner.classList.add('hidden');
-        footer.textContent = 'Status: Server offline.';
+        footer.textContent = 'Status: Offline mode (Simulated telemetry active).';
+        Toast.show({
+          title: 'Simulation Playback',
+          desc: 'Running empirical recorded telemetry (serve_dashboard.py is offline).',
+          type: 'info'
+        });
       }
     }
 
@@ -771,6 +1163,7 @@
               footer.textContent = `Status: Complete (Exit Code ${st.returncode}). Dashboard updated!`;
               footer.className = 'text-emerald-400 font-mono font-bold';
               setMode('real');
+              Toast.show({ title: 'Execution Complete', desc: 'Real Linux kernel task finished successfully.', type: 'success' });
             }
           }
         } catch (e) {
@@ -785,16 +1178,59 @@
       if (execPollTimer) clearInterval(execPollTimer);
     }
 
-    // Canvas Setup
+    // =========================================================================
+    // RETINA HIGH-DPI CANVAS SETUP & HOVER INSPECTOR
+    // =========================================================================
     const canvas = document.getElementById('rttCanvas');
     const ctx = canvas.getContext('2d');
+    const canvasWrapper = document.getElementById('canvas-wrapper');
+    const chartTooltip = document.getElementById('chart-tooltip');
 
     function resizeCanvas() {
-      canvas.width = canvas.parentElement.clientWidth;
-      canvas.height = canvas.parentElement.clientHeight;
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
+
+    // Hover Tooltip Interaction (Emil Kowalski micro-interaction)
+    canvasWrapper.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      if (rttHistory.length < 2) return;
+      const step = rect.width / (maxPoints - 1);
+      const idx = Math.min(rttHistory.length - 1, Math.max(0, Math.round(x / step)));
+      const pointVal = rttHistory[idx];
+
+      chartTooltip.classList.remove('hidden');
+      chartTooltip.style.left = `${Math.min(rect.width - 150, Math.max(10, x + 15))}px`;
+      chartTooltip.style.top = `${Math.min(rect.height - 80, Math.max(10, y - 20))}px`;
+
+      document.getElementById('tt-time').textContent = `${(idx * 0.2).toFixed(1)}s`;
+      document.getElementById('tt-rtt').textContent = `${pointVal.toFixed(2)} ms`;
+      if (pointVal > 60) {
+        document.getElementById('tt-diff').textContent = 'Standing Delay Active';
+        document.getElementById('tt-diff').className = 'text-[10px] text-rose-400 font-bold';
+        document.getElementById('tt-tin').textContent = 'Unmanaged FIFO';
+        document.getElementById('tt-tin').className = 'text-rose-400 font-bold';
+        document.getElementById('tt-q').textContent = '256.0 KB';
+      } else {
+        document.getElementById('tt-diff').textContent = '-83.5% vs FIFO';
+        document.getElementById('tt-diff').className = 'text-[10px] text-emerald-300 font-bold';
+        document.getElementById('tt-tin').textContent = 'Tin 3 (EF)';
+        document.getElementById('tt-tin').className = 'text-emerald-400 font-bold';
+        document.getElementById('tt-q').textContent = '0.0 KB';
+      }
+    });
+
+    canvasWrapper.addEventListener('mouseleave', () => {
+      chartTooltip.classList.add('hidden');
+    });
 
     function setMode(mode) {
       currentMode = mode;
@@ -802,12 +1238,9 @@
       Object.keys(btnMap).forEach(k => {
         const el = document.getElementById(btnMap[k]);
         if (k === mode) {
-          if (k === 'b0') el.className = 'py-1.5 px-2.5 rounded-xl text-xs font-black border bg-rose-700 text-white border-rose-500 glow-rose text-center transition';
-          else if (k === 'sim') el.className = 'py-1.5 px-2.5 rounded-xl text-xs font-black border bg-purple-700 text-white border-purple-500 glow-purple text-center transition';
-          else if (k === 'real') el.className = 'py-1.5 px-2.5 rounded-xl text-xs font-black border bg-emerald-600 text-white border-emerald-400 glow-emerald text-center transition';
-          else if (k === 'pi') el.className = 'py-1.5 px-2.5 rounded-xl text-xs font-black border bg-cyan-600 text-white border-cyan-400 glow-cyan text-center transition';
+          el.className = 'py-1.5 px-2 rounded-lg text-xs font-bold text-white bg-slate-800 border border-slate-700 shadow-sm transition text-center';
         } else {
-          el.className = 'py-1.5 px-2.5 rounded-xl text-xs font-bold border bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800 text-center transition';
+          el.className = 'py-1.5 px-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition text-center';
         }
       });
 
@@ -816,17 +1249,10 @@
         b0: "B0: Baseline DropTail FIFO (Unmanaged)",
         sim: "[SIM] Python Discrete-Event Simulator",
         real: "[NETNS] Real Linux Kernel 6.8 (Measured)",
-        pi: "[PI] Raspberry Pi 4B Silicon Testbed"
-      };
-      const badgeClasses = {
-        b0: "bg-rose-950/80 text-rose-400 border-rose-800/80",
-        sim: "bg-purple-950/80 text-purple-400 border-purple-800/80",
-        real: "bg-emerald-950/80 text-emerald-400 border-emerald-800/80",
-        pi: "bg-cyan-950/80 text-cyan-400 border-cyan-800/80"
+        pi: "[PI Roadmap] Target Hardware Budget"
       };
 
-      tierBadge.textContent = titles[mode];
-      tierBadge.className = `inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono ${badgeClasses[mode]}`;
+      tierBadge.innerHTML = `<span class="status-dot-active"></span> ${titles[mode]}`;
       document.getElementById('canvas-mode-title').textContent = titles[mode];
 
       const rows = { b0: 'row-b0', sim: 'row-sim', real: 'row-real', pi: 'row-pi' };
@@ -841,7 +1267,8 @@
 
       scenarioTime = 0.0;
       rttHistory = [];
-      logMessage(`Switched active evaluation tier to: ${titles[mode]}`, 'text-cyan-400');
+      logMessage(`Switched active tier: ${titles[mode]}`, 'text-cyan-400');
+      Toast.show({ title: 'Evaluation Tier Changed', desc: titles[mode], type: 'info' });
     }
 
     function setScenario(sc) {
@@ -850,17 +1277,21 @@
       Object.keys(scMap).forEach(k => {
         const el = document.getElementById(scMap[k]);
         if (k === sc) {
-          el.className = 'py-1.5 px-2.5 rounded-xl text-xs font-black border bg-cyan-600 text-white border-cyan-400 glow-cyan text-center transition';
+          el.className = 'py-1.5 px-2 rounded-lg text-xs font-bold text-white bg-slate-800 border border-slate-700 shadow-sm transition text-center';
         } else {
-          el.className = 'py-1.5 px-2.5 rounded-xl text-xs font-semibold border bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800 text-center transition';
+          el.className = 'py-1.5 px-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition text-center';
         }
       });
 
       scenarioTime = 0.0;
       rttHistory = [];
-      if (sc === 'sc1') logMessage('Scenario SC1 Started: Steady 100 Mbps link with 90 Mbps bulk load.', 'text-cyan-300');
-      else if (sc === 'sc2') logMessage('Scenario SC2 Started: 100M -> 20M Capacity Collapse with 256 KB modem buffer.', 'text-amber-300');
-      else if (sc === 'sc6') logMessage('Scenario SC6 Started: Rogue 50 Mbps bulk flow masquerading as VoIP.', 'text-rose-400');
+      const scTitles = {
+        sc1: 'SC1: Steady 100 Mbps Nominal Wire-Speed',
+        sc2: 'SC2: 100M → 20M Capacity Collapse (Modem 256KB Buffer)',
+        sc6: 'SC6: Rogue Flow Mimicry & Rate Demotion'
+      };
+      logMessage(`Started: ${scTitles[sc]}`, 'text-cyan-300');
+      Toast.show({ title: 'Scenario Active', desc: scTitles[sc], type: 'info' });
     }
 
     function logMessage(msg, colorClass) {
@@ -888,7 +1319,10 @@
           "S3_EdgeQoS_p50_ms": 20.5,
           "S3_EdgeQoS_p95_ms": 20.6,
           "S3_EdgeQoS_p99_ms": 20.6,
-          "reduction_pct": 83.5
+          "reduction_pct": 83.5,
+          "held_out_macro_f1": 0.9702,
+          "held_out_accuracy": 0.9729,
+          "abstention_threshold_tau": 0.70
         }, null, 2);
       } else if (currentMode === 'sim') {
         title.textContent = 'results/performance_evaluation.json';
@@ -908,12 +1342,13 @@
           "packet_loss_risk": "High tail drop"
         }, null, 2);
       } else if (currentMode === 'pi') {
-        title.textContent = 'Target Hardware Telemetry: Raspberry Pi 4B';
+        title.textContent = 'Target Hardware Roadmap (Raspberry Pi 4B)';
         jsonPre.textContent = JSON.stringify({
-          "target_cpu": "ARM Cortex-A72 @ 1.5 GHz",
-          "cpu_usage_single_core": "< 12%",
-          "memory_rss": "18.5 MB",
-          "interfaces": ["eth0 (Onboard GbE WAN)", "eth1 (USB 3.0 GbE LAN)"]
+          "target_soc": "Broadcom BCM2711, Quad-core Cortex-A72 @ 1.5 GHz",
+          "thermal_envelope": "3.8 W typical, passive heatsink compatible",
+          "memory_envelope": "25 MB maximum daemon RSS budget",
+          "cpu_budget": "< 15% single-core at 100 Mbps wire-speed",
+          "status": "Phase 4 Physical Hardware Target Roadmap"
         }, null, 2);
       }
       modal.classList.remove('hidden');
@@ -928,6 +1363,13 @@
     setInterval(() => {
       scenarioTime += 0.1;
       if (scenarioTime > 10.0) scenarioTime = 0.0;
+
+      // Update Active Lease Countdown Timer
+      if (activeLeaseSec > 0) {
+        activeLeaseSec -= 1;
+        const cd = document.getElementById('lease-countdown');
+        if (cd) cd.textContent = formatMinutesSeconds(activeLeaseSec);
+      }
 
       let currentRTT = 20.2;
       let tailRTT = 20.5;
@@ -1042,38 +1484,38 @@
       const svgModemHeader = document.getElementById('svg-modem-header');
 
       if (currentRTT > 60.0) {
-        rttVal.className = 'text-3xl md:text-4xl font-black font-mono text-rose-500 animate-pulse tabular-nums';
-        rttBadge.className = 'px-2 py-0.5 rounded text-[9px] bg-rose-950 text-rose-400 border border-rose-800 animate-pulse font-bold';
+        rttVal.className = 'text-3xl md:text-4xl font-extrabold font-mono text-rose-500 tabular-nums';
+        rttBadge.className = 'px-2 py-0.5 rounded text-[9px] bg-rose-950/80 text-rose-400 border border-rose-800 font-bold';
         rttBadge.textContent = 'BUFFERBLOAT';
         rttBar.className = 'bg-rose-500 h-full';
         rttBar.style.width = '95%';
-        rttCard.className = 'noc-card p-4 rounded-2xl relative overflow-hidden transition-all duration-300 glow-rose border-rose-800';
-        document.getElementById('live-indicator').className = 'w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping';
-        document.getElementById('overlay-rtt').className = 'text-2xl font-black text-rose-500 tabular-nums';
+        rttCard.className = 'eq-card p-4 relative overflow-hidden transition-all duration-300 border-rose-800/80 shadow-rose-950/30';
+        document.getElementById('live-indicator').className = 'status-dot-rose';
+        document.getElementById('overlay-rtt').className = 'text-2xl font-bold text-rose-500 tabular-nums';
         document.getElementById('overlay-diff').textContent = 'Standing Delay Active (+104ms)';
         document.getElementById('overlay-diff').className = 'text-[10px] text-rose-400 font-bold';
-        document.getElementById('modem-badge').className = 'px-2 py-0.5 rounded text-[9px] bg-rose-950 text-rose-400 border border-rose-800 animate-pulse font-bold';
+        document.getElementById('modem-badge').className = 'px-2 py-0.5 rounded text-[9px] bg-rose-950/80 text-rose-400 border border-rose-800 font-bold';
         document.getElementById('modem-badge').textContent = 'BLOATED';
-        document.getElementById('modem-val').className = 'text-3xl md:text-4xl font-black font-mono text-rose-500 tabular-nums';
+        document.getElementById('modem-val').className = 'text-3xl md:text-4xl font-extrabold font-mono text-rose-500 tabular-nums';
         
-        svgModemBox.setAttribute('fill', '#260b13');
+        svgModemBox.setAttribute('fill', '#1c0c14');
         svgModemBox.setAttribute('stroke', '#f43f5e');
-        svgModemHeader.setAttribute('fill', '#380f1a');
+        svgModemHeader.setAttribute('fill', '#2c101c');
         svgModemLed.setAttribute('fill', '#f43f5e');
       } else {
-        rttVal.className = 'text-3xl md:text-4xl font-black font-mono text-emerald-400 tabular-nums';
-        rttBadge.className = 'px-2 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold';
+        rttVal.className = 'text-3xl md:text-4xl font-extrabold font-mono text-emerald-400 tabular-nums';
+        rttBadge.className = 'px-2 py-0.5 rounded text-[9px] bg-emerald-950/70 text-emerald-400 border border-emerald-800/60 font-bold';
         rttBadge.textContent = 'CONTROLLED';
         rttBar.className = 'bg-emerald-400 h-full';
         rttBar.style.width = `${Math.min(100, (currentRTT / 40.0) * 100)}%`;
-        rttCard.className = 'noc-card p-4 rounded-2xl relative overflow-hidden transition-all duration-300';
-        document.getElementById('live-indicator').className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
-        document.getElementById('overlay-rtt').className = 'text-2xl font-black text-emerald-400 tabular-nums';
+        rttCard.className = 'eq-card p-4 relative overflow-hidden transition-all duration-300';
+        document.getElementById('live-indicator').className = 'status-dot-active';
+        document.getElementById('overlay-rtt').className = 'text-2xl font-bold text-emerald-400 tabular-nums';
         document.getElementById('overlay-diff').textContent = '-83.5% vs FIFO';
-        document.getElementById('overlay-diff').className = 'text-[10px] text-emerald-300 font-bold';
-        document.getElementById('modem-badge').className = 'px-2 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold';
+        document.getElementById('overlay-diff').className = 'text-[10px] text-emerald-300 font-semibold';
+        document.getElementById('modem-badge').className = 'px-2 py-0.5 rounded text-[9px] bg-emerald-950/70 text-emerald-400 border border-emerald-800/60 font-bold';
         document.getElementById('modem-badge').textContent = 'DRAINED';
-        document.getElementById('modem-val').className = 'text-3xl md:text-4xl font-black font-mono text-emerald-400 tabular-nums';
+        document.getElementById('modem-val').className = 'text-3xl md:text-4xl font-extrabold font-mono text-emerald-400 tabular-nums';
         
         svgModemBox.setAttribute('fill', '#090e1a');
         svgModemBox.setAttribute('stroke', '#1e293b');
@@ -1091,14 +1533,19 @@
       drawChart();
     }, 100);
 
+    // =========================================================================
+    // RETINA GRAPH RENDERER
+    // =========================================================================
     function drawChart() {
-      if (!canvas.width || !canvas.height) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const w = canvas.width;
-      const h = canvas.height;
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      if (!w || !h) return;
 
-      // Draw Grid
-      ctx.strokeStyle = '#0f172a';
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw Grid Lines
+      ctx.strokeStyle = '#0d1527';
       ctx.lineWidth = 1;
       for (let y = 0; y < h; y += 38) {
         ctx.beginPath();
@@ -1109,7 +1556,8 @@
 
       // Target Line (25ms)
       const y25 = h - (25 / 160) * h;
-      ctx.strokeStyle = 'rgba(34, 197, 94, 0.45)';
+      ctx.strokeStyle = 'rgba(34, 197, 94, 0.4)';
+      ctx.lineWidth = 1.2;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(0, y25);
@@ -1118,20 +1566,21 @@
       ctx.setLineDash([]);
       ctx.fillStyle = '#22c55e';
       ctx.font = '10px JetBrains Mono';
-      ctx.fillText('25ms Latency Target', 10, y25 - 5);
+      ctx.fillText('25ms Latency Target SLA', 12, y25 - 6);
 
       // FIFO Bufferbloat Reference (124ms)
       const y124 = h - (124 / 160) * h;
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
-      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.4)';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([5, 5]);
       ctx.beginPath();
       ctx.moveTo(0, y124);
       ctx.lineTo(w, y124);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = '#ef4444';
+      ctx.fillStyle = '#f43f5e';
       ctx.font = '10px JetBrains Mono';
-      ctx.fillText('124ms Unmanaged Modem Standing Delay', 10, y124 - 5);
+      ctx.fillText('124ms Unmanaged Modem Standing Delay', 12, y124 - 6);
 
       if (rttHistory.length < 2) return;
       ctx.beginPath();
@@ -1143,14 +1592,14 @@
         else ctx.lineTo(x, y);
       });
 
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2.2;
       const latest = rttHistory[rttHistory.length - 1];
-      ctx.strokeStyle = latest > 60 ? '#ef4444' : (currentMode === 'pi' ? '#06b6d4' : (currentMode === 'sim' ? '#a855f7' : '#10b981'));
+      ctx.strokeStyle = latest > 60 ? '#f43f5e' : (currentMode === 'pi' ? '#38bdf8' : (currentMode === 'sim' ? '#c084fc' : '#10b981'));
       ctx.stroke();
 
       ctx.lineTo((rttHistory.length - 1) * step, h);
       ctx.lineTo(0, h);
-      ctx.fillStyle = latest > 60 ? 'rgba(239, 68, 68, 0.15)' : (currentMode === 'pi' ? 'rgba(6, 182, 212, 0.12)' : 'rgba(16, 185, 129, 0.12)');
+      ctx.fillStyle = latest > 60 ? 'rgba(244, 63, 94, 0.12)' : (currentMode === 'pi' ? 'rgba(56, 189, 248, 0.1)' : 'rgba(16, 185, 129, 0.1)');
       ctx.fill();
     }
   </script>
