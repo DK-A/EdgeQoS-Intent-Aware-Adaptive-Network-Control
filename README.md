@@ -15,21 +15,21 @@
 
 *Evidence-gated status auditing. Every claim is strictly grounded in verifiable code and reproducible test artifacts.*
 
-| Subsystem / Area | Status | Evidence / Verification Artifact |
-| :--- | :---: | :--- |
-| **Namespace Testbed & Bottleneck Emulator** | ✅ Implemented & tested | [`scripts/setup_netns_topo.sh`](scripts/setup_netns_topo.sh) · [`docs/MODULES.md`](docs/MODULES.md) |
-| **Zero-DPI In-Kernel Snaplen (28B UDP / 40B TCP)** | ✅ Implemented & tested | [`dataplane/edgeqos.nft`](dataplane/edgeqos.nft) · [`tests/test_privacy.py`](tests/test_privacy.py) (**0B Leak PASS**) |
-| **Early-Flow TinyML Classifier ($0.741\ \mu\text{s}$)** | ✅ Implemented & tested | [`ml/classifier.py`](ml/classifier.py) · [`results/inference_bench.json`](results/inference_bench.json) |
-| **Calibrated Confidence Abstention ($\tau = 0.70$)** | ✅ Implemented & tested | [`ml/classifier.py`](ml/classifier.py) · [`results/ml_eval_report.json`](results/ml_eval_report.json) |
-| **Linux Kernel CAKE (`diffserv4`) + Timed Sets** | ✅ Implemented & tested | [`dataplane/edgeqos.nft`](dataplane/edgeqos.nft) · [`results/tin_steering_distribution.png`](results/tin_steering_distribution.png) |
-| **Behavioral Rate Guard Demotion ($SC_6$)** | ✅ Implemented & tested | [`controller/guard.py`](controller/guard.py) · [`results/demotion_cdf.png`](results/demotion_cdf.png) ($\le 1.25\text{s}$) |
-| **Passive Capacity Tracking ($SC_2$ Collapse)** | ✅ Implemented & tested | [`controller/guard.py`](controller/guard.py) · [`results/netns_collapse_result.json`](results/netns_collapse_result.json) ($1.64\text{s}$) |
-| **Fail-Safe Watchdog & State Rollback ($SC_9$)** | ✅ Implemented & tested | [`safety/restore.sh`](safety/restore.sh) · [`safety/edgeqos-watchdog.sh`](safety/edgeqos-watchdog.sh) |
-| **ML vs. Deterministic Rule Baseline** | ✅ Implemented & tested | [`ml/compare_baseline.py`](ml/compare_baseline.py) · [`results/ml_vs_rule_comparison.json`](results/ml_vs_rule_comparison.json) (99.9% vs 66.7%) |
-| **Temporary User Intent Leases** | 🟡 Partially tested | CLI verified ([`controller/lease.py`](controller/lease.py)); RESTful API planned |
-| **Operations Dashboard** | 🟡 Partially tested | Local NOC prototype ([`demo/edgeqos_dashboard.html`](demo/edgeqos_dashboard.html)); live telemetry |
-| **Dual-Stack IPv6 Support** | 📝 Planned | IPv6 fixed header + Flow Label parsing on roadmap ([`docs/ROADMAP.md`](docs/ROADMAP.md)) |
-| **Raspberry Pi 4B Physical Benchmarks** | 📝 Planned | Hardware BOM defined; netns execution verified; Phase 4 target ([`docs/ROADMAP.md`](docs/ROADMAP.md)) |
+| Subsystem / Area | Status | Evidence / Verification Artifact | Scope & Current Validation State |
+| :--- | :---: | :--- | :--- |
+| **Namespace Testbed & Bottleneck Emulator** | ✅ Implemented & tested | [`scripts/setup_netns_topo.sh`](scripts/setup_netns_topo.sh) · [`docs/MODULES.md`](docs/MODULES.md) | Verified 4-node netns topology (`c1 ──► gw ──► isp ──► srv`) with `tc-cake` and `netem`. |
+| **Zero-DPI In-Kernel Snaplen (28B UDP / 40B TCP)** | ✅ Implemented & tested | [`dataplane/edgeqos.nft`](dataplane/edgeqos.nft) · [`tests/test_privacy.py`](tests/test_privacy.py) | In-kernel truncation barrier verified: **0 Bytes payload leaked** (`results/priv_report.txt`). |
+| **Linux Kernel CAKE (`diffserv4`) + Timed Sets** | ✅ Implemented & tested | [`dataplane/edgeqos.nft`](dataplane/edgeqos.nft) · [`results/tin_steering_distribution.png`](results/tin_steering_distribution.png) | 4-tin DSCP steering verified via hardware tin counters (`docs/tin_map_observed.md`). |
+| **Early-Flow TinyML Classifier ($0.49\ \mu\text{s}$)** | 🟡 Partially tested | [`ml/classifier.py`](ml/classifier.py) · [`results/inference_bench.json`](results/inference_bench.json) | Evaluated on synthetic session generator; real-world live traffic drift testing pending. |
+| **Calibrated Confidence Abstention ($\tau = 0.70$)** | 🟡 Partially tested | [`ml/classifier.py`](ml/classifier.py) · [`results/ml_eval_report.json`](results/ml_eval_report.json) | Platt scaling threshold tested offline; dynamic online recalibration in progress. |
+| **ML vs. Deterministic Rule Baseline** | 🟡 Partially tested | [`ml/compare_baseline.py`](ml/compare_baseline.py) · [`results/ml_vs_rule_comparison.json`](results/ml_vs_rule_comparison.json) | Tested on 2,400 held-out flows (99.9% vs 66.7%); live application benchmark planned. |
+| **Passive Capacity Tracking ($SC_2$ Collapse)** | 🟡 Partially tested | [`controller/guard.py`](controller/guard.py) · [`results/netns_collapse_result.json`](results/netns_collapse_result.json) | Single upload step-down verified ($1.64\text{s}$); fluctuating multi-step & download tracking in progress. |
+| **Behavioral Rate Guard Demotion ($SC_6$)** | 🟡 Partially tested | [`controller/guard.py`](controller/guard.py) · [`results/demotion_cdf.png`](results/demotion_cdf.png) | Unit test verified ($\le 1.00\text{s}$ demotion); high-concurrency conntrack audit pending. |
+| **Fail-Safe Watchdog & State Rollback ($SC_9$)** | 🟡 Partially tested | [`safety/restore.sh`](safety/restore.sh) · [`safety/edgeqos-watchdog.sh`](safety/edgeqos-watchdog.sh) | Shell watchdog & kill -9 verified; systemd process supervisor integration in progress. |
+| **Temporary User Intent Leases** | 🔧 In progress | [`controller/lease.py`](controller/lease.py) | CLI lease reservation working via `nftables` sets; RESTful API daemon in development. |
+| **Operations Dashboard (NOC Console)** | 🔧 In progress | [`demo/edgeqos_dashboard.html`](demo/edgeqos_dashboard.html) · [`demo/serve_dashboard.py`](demo/serve_dashboard.py) | UI prototype & telemetry playback functional; live 10 Hz kernel socket binding in progress. |
+| **Dual-Stack IPv6 Support** | 📝 Planned | [`docs/ROADMAP.md`](docs/ROADMAP.md) | IPv6 40B header parser and 20-bit Flow Label classification on Phase 2 roadmap. |
+| **Raspberry Pi 4B Physical Benchmarks** | 📝 Planned | [`docs/ROADMAP.md`](docs/ROADMAP.md) · [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | BOM and architecture defined; bare-metal hardware validation on Phase 4 roadmap. |
 
 > 📌 **Key Reference Engineering Documents:**  
 > • [**Case Study Requirement Mapping**](docs/CASE_STUDY_MAPPING.md) · [**Component Module Contracts**](docs/MODULES.md) · [**Engineering Architecture Decisions (ADRs)**](docs/ENGINEERING_DECISIONS.md)  
