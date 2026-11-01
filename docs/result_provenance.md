@@ -21,7 +21,7 @@
 | **`ablation_benchmark.json`** | `[SIM]` | `sim/benchmark.py` | `results/ablation_benchmark.json` | Raw per-packet traces for B0, B1, B3, B4, S2, S3 across SC1, SC2, SC6 |
 | **`inference_bench.json`** | `[NETNS]` / Host | `tests/test_classifier.py` | `results/inference_bench.json` | Empirical 10,000-run microbenchmark of CART decision tree: p50=0.741 µs, p99=1.513 µs |
 | **`priv_report.txt`** | `[NETNS]` / Host | `tests/test_privacy.py` | `results/priv_report.txt` | In-kernel snaplen privacy test report verifying 0 bytes of secret payload |
-| **`ml_eval_report.json`** | `[SIM]` / Offline | `ml/train.py` | `results/ml_eval_report.json` | Group 5-fold cross-validation metrics (F1=0.996) and Platt calibration calibration error |
+| **`ml_eval_report.json`** | `[NETNS]` / Pre-reg | `ml/evaluate.py` | `results/ml_eval_report.json` | Held-out test session metrics (Macro F1=0.9702, FPR=0.39%), Platt calibration (ECE=0.017), and real-app generalisation gap |
 | **`tree_model.json`** | Model Artifact | `ml/train.py` | `ml/models/tree_model.json` | Standalone 1.7 KB pure JSON decision tree array used for inference |
 
 ---

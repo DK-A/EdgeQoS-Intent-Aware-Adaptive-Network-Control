@@ -1,3 +1,3 @@
 Model,Accuracy,Macro_F1,F1_CI_95,FPR_Pct,FDR_Pct,Realtime_F1,Stream_F1,Bulk_F1,Other_F1,Decision_Latency_us
 Deterministic_Rules,0.6312,0.5360,[0.492-0.575],8.63,51.11,0.6931,0.0000,0.7229,0.7281,0.025
-EdgeQoS_TinyML,0.9729,0.9702,[0.950-0.985],0.39,0.00,0.9429,1.0000,0.9967,0.9412,4.839
+EdgeQoS_TinyML,0.9729,0.9702,[0.950-0.985],0.39,0.00,0.9429,1.0000,0.9967,0.9412,4.500

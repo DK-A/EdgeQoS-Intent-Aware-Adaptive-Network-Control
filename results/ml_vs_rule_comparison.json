@@ -133,11 +133,11 @@
     }
   },
   "disaggregated_latency_us": {
-    "t_feat_us": 3.796,
-    "t_infer_p50_us": 1.043,
-    "t_infer_p99_us": 2.446,
-    "t_decision_us": 4.839,
-    "t_policy_us": 0.127,
-    "t_end_to_end_us": 4.967
+    "t_feat_us": 3.589,
+    "t_infer_p50_us": 0.911,
+    "t_infer_p99_us": 1.703,
+    "t_decision_us": 4.5,
+    "t_policy_us": 0.107,
+    "t_end_to_end_us": 4.608
   }
 }

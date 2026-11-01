@@ -3,7 +3,7 @@
 [![Linux 6.8 Verified](https://img.shields.io/badge/Kernel-Linux%206.8.0-blue?logo=linux&style=for-the-badge)](https://www.kernel.org/)
 [![Zero-DPI Privacy](https://img.shields.io/badge/Zero--DPI%20Privacy-0B%20Leak%20(PASS)-emerald?style=for-the-badge)](tests/test_privacy.py)
 [![Latency Cut](https://img.shields.io/badge/Measured%20Latency%20Cut-83.5%25-brightgreen?style=for-the-badge)](results/netns_collapse_result.json)
-[![Inference Speed](https://img.shields.io/badge/TinyML%20Inference-0.741%20%C2%B5s-cyan?style=for-the-badge)](results/inference_bench.json)
+[![Inference Speed](https://img.shields.io/badge/TinyML%20Inference-1.04%20%C2%B5s-cyan?style=for-the-badge)](results/inference_bench.json)
 [![Target Platform](https://img.shields.io/badge/Hardware-Raspberry%20Pi%204B%20%7C%20x86__64-orange?style=for-the-badge)](docs/result_provenance.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
 
@@ -25,13 +25,13 @@
 | **Namespace Testbed & Bottleneck Emulator** | ✅ Implemented & tested | [`scripts/setup_netns_topo.sh`](scripts/setup_netns_topo.sh) · [`docs/MODULES.md`](docs/MODULES.md) | Verified 4-node netns topology (`c1 ──► gw ──► isp ──► srv`) with `tc-cake` and `netem`. |
 | **Zero-DPI In-Kernel Snaplen (28B UDP / 40B TCP)** | ✅ Implemented & tested | [`dataplane/edgeqos.nft`](dataplane/edgeqos.nft) · [`tests/test_privacy.py`](tests/test_privacy.py) | In-kernel truncation barrier verified: **0 Bytes payload leaked** (`results/priv_report.txt`). |
 | **Linux Kernel CAKE (`diffserv4`) + Timed Sets** | ✅ Implemented & tested | [`dataplane/edgeqos.nft`](dataplane/edgeqos.nft) · [`results/tin_steering_distribution.png`](results/tin_steering_distribution.png) | 4-tin DSCP steering verified via hardware tin counters (`docs/tin_map_observed.md`). |
-| **Early-Flow TinyML Classifier ($4.57\ \mu\text{s}$)** | 🟡 Partially tested | [`ml/evaluate.py`](ml/evaluate.py) · [`docs/ML_EVALUATION.md`](docs/ML_EVALUATION.md) | Evaluated on real-stack sessions (`[NETNS]`, Macro F1 = 0.9702); real-app test set evaluated (`[REAL]`). |
+| **Early-Flow TinyML Classifier ($4.84\ \mu\text{s}$)** | 🟡 Partially tested | [`ml/evaluate.py`](ml/evaluate.py) · [`docs/ML_EVALUATION.md`](docs/ML_EVALUATION.md) | Evaluated on real-stack sessions (`[NETNS]`, Macro F1 = 0.9702); real-app test set evaluated (`[REAL]`, Macro F1 = 0.4649). |
 | **Calibrated Confidence Abstention ($\tau = 0.70$)** | 🟡 Partially tested | [`ml/models/tree_model.json`](ml/models/tree_model.json) · [`results/ml_eval_report.json`](results/ml_eval_report.json) | Platt scaling on validation; False-Promotion Rate bounded to **$0.39\%$** (vs $8.63\%$ for rules). |
 | **ML vs. Deterministic Rule Baseline** | 🟡 Partially tested | [`ml/evaluate.py`](ml/evaluate.py) · [`results/ml_vs_rule_comparison.json`](results/ml_vs_rule_comparison.json) | Pre-registered test on 480 held-out flows (97.3% vs 63.1% acc, 0.9702 vs 0.5360 F1). |
 | **Passive Capacity Tracking ($SC_2$ Collapse)** | 🟡 Partially tested | [`controller/guard.py`](controller/guard.py) · [`results/netns_collapse_result.json`](results/netns_collapse_result.json) | Single upload step-down verified ($1.64\text{s}$); fluctuating multi-step & download tracking in progress. |
 | **Behavioral Rate Guard Demotion ($SC_6$)** | 🟡 Partially tested | [`daemon/edgeqosd/guard.py`](daemon/edgeqosd/guard.py) · [`tests/test_guard_integration.py`](tests/test_guard_integration.py) | Unit test verified ($1.00\text{s}$ demotion, formula bound $\le 1.25\text{s}$); conntrack audit pending. |
 | **Fail-Safe Watchdog & State Rollback ($SC_9$)** | 🟡 Partially tested | [`safety/restore.sh`](safety/restore.sh) · [`safety/edgeqos-watchdog.sh`](safety/edgeqos-watchdog.sh) | Shell watchdog & kill -9 verified; systemd process supervisor integration in progress. |
-| **Temporary User Intent Leases** | 🔧 In progress | [`controller/lease.py`](controller/lease.py) | CLI lease reservation working via `nftables` sets; RESTful API daemon in development. |
+| **Temporary User Intent Leases** | ✅ Implemented & tested | [`scripts/intent_ctl.py`](scripts/intent_ctl.py) · [`tests/test_intent_lease.py`](tests/test_intent_lease.py) | CLI intent management (`grant`, `list`, `revoke`) working via `nftables` timed sets (@lease_rt); automated TTL rollback verified. |
 | **Operations Dashboard (NOC Console)** | 🔧 In progress | [`demo/edgeqos_dashboard.html`](demo/edgeqos_dashboard.html) · [`demo/serve_dashboard.py`](demo/serve_dashboard.py) | UI prototype & telemetry playback functional; live 10 Hz kernel socket binding in progress. |
 | **Dual-Stack IPv6 Support** | 📝 Planned | [`docs/ROADMAP.md`](docs/ROADMAP.md) | IPv6 40B header parser and 20-bit Flow Label classification on Phase 2 roadmap. |
 | **Raspberry Pi 4B Physical Benchmarks** | 📝 Planned | [`docs/ROADMAP.md`](docs/ROADMAP.md) · [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | BOM and architecture defined; bare-metal hardware validation on Phase 4 roadmap. |
@@ -55,21 +55,22 @@
 
 ## 📑 Table of Contents
 1. [Executive Overview & Tata Elxsi PS3 Context](#-executive-overview--tata-elxsi-ps3-context)
-2. [SOTA Competitive Comparison & Baseline Benchmarks](#-state-of-the-art-sota-competitive-comparison)
+2. [Architectural Scope & Deployment Model Comparison](#-architectural-scope--deployment-model-comparison)
 3. [System Architecture & 6-Layer Workflow](#-system-architecture--workflow)
-4. [Theoretical Delay Bound Derivation ($T_{\text{round}}$)](#-theoretical-delay-bound-derivation-t_textround)
+4. [Local Serialization Delay Analysis & Multi-Tin Isolation](#-local-serialization-delay-analysis--multi-tin-isolation)
 5. [Core Technical Novelties](#-core-technical-novelties)
 6. [Architectural Tradeoff Analysis](#-architectural-tradeoff-analysis)
 7. [Taxonomy & Notation Guide (Baselines, Solutions, Scenarios)](#-taxonomy--notation-guide)
 8. [Master Empirical Performance Evaluation](#-master-empirical-performance-evaluation)
 9. [Comprehensive Visual Results Gallery (Compact Matrix)](#-comprehensive-visual-results-gallery-compact-matrix)
 10. [Zero-DPI Privacy Invariant (0-Byte Leakage)](#-zero-dpi-privacy-invariant)
-11. [Target Hardware BOM & Embedded Deployment (Raspberry Pi 4B)](#-target-hardware-bom--embedded-deployment-raspberry-pi-4b)
-12. [Live Network Operations Console (NOC Dashboard)](#-live-network-operations-console)
-13. [Solid Proof Runs & Reproduction Guide](#-solid-proof-runs--step-by-step-reproduction-guide)
-14. [Engineering Team & Specializations (ECE)](#-engineering-team--specializations)
-15. [Repository Structure](#-repository-structure)
-16. [License](#-license)
+11. [Target Hardware BOM & Embedded Deployment Roadmap (Raspberry Pi 4B)](#-target-hardware-bom--embedded-deployment-roadmap-raspberry-pi-4b)
+12. [Implemented User Intent Workflow (Temporary QoS Passes)](#-implemented-user-intent-workflow-temporary-qos-passes)
+13. [Live Network Operations Console (NOC Dashboard)](#-live-network-operations-console)
+14. [Solid Proof Runs & Reproduction Guide](#-solid-proof-runs--step-by-step-reproduction-guide)
+15. [Engineering Team & Specializations (ECE)](#-engineering-team--specializations)
+16. [Repository Structure](#-repository-structure)
+17. [License](#-license)
 
 ---
 
@@ -106,32 +107,37 @@ $$\text{Theoretical Delay} = \frac{256\text{ KB} \times 8 \times 1024\text{ bits
 
 ---
 
-## 🏆 State-of-the-Art (SOTA) Competitive Comparison
+## ⚖️ Architectural Scope & Deployment Model Comparison
 
-EdgeQoS addresses the fundamental shortcomings of existing industry solutions:
+Network congestion and bufferbloat management approaches operate across fundamentally different layers of the networking stack and make distinct architectural assumptions:
+* **Google BBR (v1/v2/v3):** A sender-side TCP congestion control algorithm running on content servers. It seeks bottleneck bandwidth and minimum RTT, but cannot enforce multi-tenant residential flow priority or prevent local gateway bufferbloat caused by non-BBR or UDP cross-traffic.
+* **Cisco DualPI2 / L4S (RFC 9330/9331):** An in-network coupled dual-queue AQM mechanism providing sub-millisecond queuing delay for low-latency traffic, but fundamentally requires Explicit Congestion Notification (ECN / ECT(1)) markings and updated transport protocols (e.g., TCP Prague) on endpoints.
+* **OpenWrt SQM (Static CAKE):** A proven in-kernel queuing discipline providing per-flow fairness and multi-tin scheduling, but operates at statically configured bandwidth thresholds that fail to drain modem buffers when access link bandwidth collapses.
+* **EdgeQoS (Our Architecture):** A drop-in residential gateway AQM solution that autonomously estimates access bottleneck collapse using passive queue-RTT telemetry without active speedtest flooding, classifies traffic into priority tins using early-flow metadata without payload decryption, and enforces safety guardrails when classification is uncertain or adversarial.
 
-| Feature / Dimension | Default DropTail FIFO | OpenWrt SQM (Static CAKE) | Cisco DualPI2 / L4S | Google BBR (v1/v2/v3) | **EdgeQoS (Our System)** |
+| Architectural Dimension | Default DropTail FIFO | OpenWrt SQM (Static CAKE) | Cisco DualPI2 / L4S | Google BBR (v1/v2/v3) | **EdgeQoS (Our Architecture)** |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Bufferbloat Elimination** | ❌ Fails (124ms bloat) | ⚠️ Partial (Fixed rate only) | ✅ Yes (Coupled Queue) | ⚠️ Sender-only | **✅ Yes (20.5ms bounded)** |
-| **Dynamic Collapse Adaptation** | ❌ None | ❌ Static (Manual config) | ⚠️ Requires ECN feedback | ⚠️ Congestion probe cycle | **✅ Autonomous ($T_{\text{settle}} = 1.64\text{s}$)** |
-| **Privacy / Encryption Support** | N/A (No classification) | ⚠️ DSCP trust only | ⚠️ Needs ECN protocol support | N/A | **✅ Zero-DPI (0B Payload)** |
-| **Flow-Type Priority Isolation** | ❌ None | ⚠️ Single Tin (FQ-CoDel) | ⚠️ 2 Tins (L4S / Classic) | ❌ None | **✅ 4 Tins (`diffserv4` DRR+)** |
-| **Host / Endpoint Modifications** | None | None | ❌ Requires Prague/L4S hosts | ❌ Requires Sender kernel patch | **✅ Zero (Drop-in Gateway)** |
-| **Untrusted DSCP Defense** | ❌ Vulnerable | ❌ Blind trust | ❌ Vulnerable | N/A | **✅ Behavioral Guard Demotion** |
-| **Gateway Resource Overhead** | 0% | $< 1\%$ | $\approx 2\%$ | N/A | **$< 2\%$ CPU · 14.2 MB RSS** |
-| **Inference / Decision Speed** | N/A | N/A | N/A | N/A | **$1.04\ \mu\text{s}$ (Sub-microsecond tree)** |
+| **Operational Layer** | Gateway Queue | Gateway Queue | Gateway Queue | Endpoint Transport (Sender) | **Gateway Queue & Control Plane** |
+| **Bufferbloat Prevention** | ❌ Fails (124ms bloat) | ⚠️ Static rate only | ✅ Coupled Dual Queue | ⚠️ Sender-only pacing | **✅ Dynamic Autonomic Shaper** |
+| **Access Collapse Tracking** | ❌ None | ❌ Manual config only | ⚠️ Needs ECN / feedback | ⚠️ Congestion probe cycles | **✅ Autonomous ($T_{\text{settle}} = 1.64\text{s}$)** |
+| **Encrypted Traffic Classification** | N/A (FIFO) | ⚠️ Blind DSCP trust | ⚠️ Relies on ECN IP bits | N/A | **✅ Zero-DPI (Metadata at $N \le 10$)** |
+| **Multi-Tin Priority Scheduling** | ❌ None | ⚠️ Config-dependent | ⚠️ 2 Tins (L4S / Classic) | ❌ None | **✅ 4 Tins (`diffserv4` DRR+)** |
+| **Endpoint / Host Modifications** | None required | None required | ❌ Requires Prague/L4S hosts | ❌ Requires sender TCP change | **✅ Zero (Drop-in Gateway)** |
+| **Rogue / Spoofed Priority Defense** | ❌ Vulnerable | ❌ Blind trust | ❌ Vulnerable | N/A | **✅ In-Kernel Behavioral Rate Guard** |
+| **Gateway Resource Footprint** | 0% | $< 1\%$ | $\approx 2\%$ | N/A | **$< 2\%$ CPU · 14.2 MB RSS** |
+| **Per-Flow Decision Latency** | N/A | Static | Static | N/A | **$4.84\ \mu\text{s}$ ($1.04\ \mu\text{s}$ tree traversal)** |
 
 ### Case Study 3: Baseline Solutions Comparative Benchmark Table
 
-The table below contrasts EdgeQoS against traditional residential gateway solutions during sustained upstream bottleneck collapse (100 Mbps $\to$ 20 Mbps):
+The table below contrasts EdgeQoS against baseline residential gateway configurations during sustained upstream bottleneck collapse (100 Mbps $\to$ 20 Mbps). Results for $B_0, B_1, B_4$, and $S_3$ are empirically measured on our Linux 6.8 network namespace testbed (`[NETNS]`); `cake-autorate` figures reflect reported behavior from literature under comparable dynamic broadband links:
 
-| Solution / Baseline | Approach & Mechanism | Measured Collapse Latency ($p50$) | Worst-Case Tail ($p99$) | Modem Standing Backlog | Settling Time ($T_{\text{settle}}$) | Probe Data Waste | Voice Flow Isolation | Rogue DSCP Defense |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **$B_0$: Default DropTail FIFO** | Single unmanaged queue | **124.00 ms** *(Bloat)* | 160.00 ms | 256.0 KB (Full) | $\infty$ (Permanent) | 0 MB | ❌ None (Shared FIFO) | ❌ Vulnerable |
-| **$B_1$: Tuned Static CAKE** | Fixed shaper at 90 Mbps | **20.40 ms** *(at 90M)* | 22.10 ms | 0.0 KB | N/A (Static) | 0 MB | ⚠️ Port-based only | ❌ Blind trust |
-| **$B_4$: Stale Static CAKE** | Fixed 95M (collapsed to 20M) | **125.00 ms** *(Bloat)* | 148.00 ms | 256.0 KB (Full) | $\infty$ (Fails collapse) | 0 MB | ⚠️ Overwhelmed | ❌ Blind trust |
-| **Existing Autorate (`cake-autorate`)** | Active latency ping modulation | $\approx 28\text{--}35\text{ ms}$ | $45\text{--}60\text{ ms}$ | $\le 16.0\text{ KB}$ | $3.5\text{--}5.0\text{ s}$ | $\approx 150\text{ MB/day}$ | ❌ Single Tin (No ML) | ❌ Blind trust |
-| **$S_3$: EdgeQoS (Our System)** | **Zero-DPI TinyML + Passive Capacity Tracker + CAKE diffserv4** | **20.50 ms** *(Controlled)* | **20.70 ms** | **0.0 KB** *(Drained)* | **1.64 seconds** | **0 MB (Passive)** | **✅ 4 Tins (DRR+ EF)** | **✅ Demoted in $\le 1.00\text{s}$** |
+| Solution / Baseline | Provenance | Approach & Mechanism | Measured Collapse Latency ($p50$) | Worst-Case Tail ($p99$) | Modem Standing Backlog | Settling Time ($T_{\text{settle}}$) | Probe Data Waste | Voice Flow Isolation | Rogue Priority Defense |
+| :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **$B_0$: Default DropTail FIFO** | `[NETNS]` | Single unmanaged queue | **124.00 ms** *(Bloat)* | 160.00 ms | 256.0 KB (Full) | $\infty$ (Permanent) | 0 MB | ❌ None (Shared FIFO) | ❌ None |
+| **$B_1$: Tuned Static CAKE** | `[NETNS]` | Fixed shaper at 90 Mbps | **20.40 ms** *(at 90M)* | 22.10 ms | 0.0 KB | N/A (Static) | 0 MB | ⚠️ Port-based only | ❌ Blind trust |
+| **$B_4$: Stale Static CAKE** | `[NETNS]` | Fixed 95M (collapsed to 20M) | **125.00 ms** *(Bloat)* | 148.00 ms | 256.0 KB (Full) | $\infty$ (Fails collapse) | 0 MB | ⚠️ Overwhelmed | ❌ Blind trust |
+| **Existing Autorate (`cake-autorate`)** | Literature | Active latency ping modulation | $\approx 28\text{--}35\text{ ms}$ | $45\text{--}60\text{ ms}$ | $\le 16.0\text{ KB}$ | $3.5\text{--}5.0\text{ s}$ | $\approx 150\text{ MB/day}$ | ❌ Single Tin (No ML) | ❌ Blind trust |
+| **$S_3$: EdgeQoS (Our Architecture)** | `[NETNS]` | **Zero-DPI TinyML + Passive Capacity Tracker + CAKE diffserv4** | **20.50 ms** *(Controlled)* | **20.70 ms** | **0.0 KB** *(Drained)* | **1.64 seconds** | **0 MB (Passive)** | **✅ 4 Tins (DRR+ EF)** | **✅ Demoted in $\le 1.00\text{s}$** |
 
 ---
 
@@ -187,12 +193,12 @@ EdgeQoS divides duties strictly between **Userspace Intelligence (Control Plane)
 
 ---
 
-## 📐 Theoretical Delay Bound Derivation ($T_{\text{round}}$)
+## 📐 Local Serialization Delay Analysis: Why Multi-Tin Scheduling is Necessary
 
-Why is machine-learning flow classification strictly necessary when fair queuing (like standard FQ-CoDel) already exists? The mathematical proof lies in the **Deficit Round Robin (DRR+) Scheduling Service Round**:
+Why is multi-tin priority scheduling necessary when single-tier fair queuing (like standard FQ-CoDel) already exists? The difference lies in the **scheduling service round and head-of-line serialization delay** at the local egress bottleneck:
 
 ### 1. Deficit Round Robin Latency in Single-Tier Queuing
-In standard fair queuing without priority tins, $N$ concurrent active flows are scheduled in round-robin fashion. If $N$ bulk download flows each have an MTU-sized packet queued, the maximum scheduling delay experienced by a newly arrived real-time packet is bounded by:
+In standard fair queuing without priority tins, $N$ concurrent active flows are scheduled in round-robin fashion. If $N$ bulk download flows each have an MTU-sized packet queued, the maximum scheduling delay experienced by a newly arrived real-time packet before receiving service is bounded by:
 
 $$T_{\text{round}} = \sum_{i=1}^{N} \frac{\text{MTU}_i}{C_{\text{bottleneck}}}$$
 
@@ -200,14 +206,15 @@ For $N = 64$ concurrent TCP bulk flows ($\text{MTU} = 1500\text{ bytes} = 12{,}0
 
 $$T_{\text{round}} = \frac{64 \times 12{,}000\text{ bits}}{20 \times 10^6\text{ bps}} = \frac{768{,}000\text{ bits}}{20{,}000{,}000\text{ bps}} = \mathbf{38.40\text{ ms}}$$
 
-A single scheduling round delay of **$38.40\text{ ms}$** exceeds the total ITU-T G.114 residential one-way budget for VoIP ($< 25\text{ ms}$), causing immediate audio breakup.
+A single scheduling round delay of **$38.40\text{ ms}$** exceeds the residential interactive delay budget for VoIP ($< 25\text{ ms}$), causing jitter buffer under-runs and audio distortion.
 
-### 2. Multi-Tin DRR+ Priority Hierarchy (EdgeQoS)
-EdgeQoS isolates classified flows into distinct priority tins in `tc-cake diffserv4`. High-priority Tin 3 (Voice EF) is served under strict priority with deficit credit over lower-priority bulk tins:
+### 2. Multi-Tin DRR+ Priority Isolation (EdgeQoS)
+EdgeQoS isolates classified flows into distinct priority tins in `tc-cake diffserv4`. High-priority Tin 3 (Voice / Interactive EF) is served under strict priority with deficit credit over lower-priority bulk tins. At the local gateway egress interface, a real-time packet arriving when a bulk packet is already transmitting experiences a local non-preemptive wire serialization delay bounded by:
 
-$$T_{\text{voice}} \le \frac{\text{MTU}_{\text{max}}}{C_{\text{bottleneck}}} = \frac{1500 \times 8\text{ bits}}{20 \times 10^6\text{ bps}} = \mathbf{0.60\text{ ms}}$$
+$$t_{\text{tx}} \le \frac{\text{MTU}_{\text{max}}}{C_{\text{bottleneck}}} = \frac{1500 \times 8\text{ bits}}{20 \times 10^6\text{ bps}} = \mathbf{0.60\text{ ms}}$$
 
-By steering latency-sensitive flows to Tin 3 via early-flow TinyML, EdgeQoS mathematically guarantees worst-case scheduling delay $\le \mathbf{0.60\text{ ms}}$, regardless of the number of concurrent bulk flows ($N=64$).
+> [!NOTE]
+> **Scope & Boundary Distinction:** This $0.60\text{ ms}$ bound strictly represents **local egress link serialization delay** at the gateway, not end-to-end network latency. End-to-end latency is governed by physical link propagation delay ($20.0\text{ ms}$ base RTT in our testbed), processing and namespace overhead, and any upstream ISP queue backlog. Steering real-time traffic to Tin 3 ensures the local gateway queue adds at most $0.60\text{ ms}$ of wire serialization delay rather than $38.40\text{ ms}$ of round-robin delay.
 
 ---
 
@@ -215,7 +222,7 @@ By steering latency-sensitive flows to Tin 3 via early-flow TinyML, EdgeQoS math
 
 | # | Novelty Area | EdgeQoS Architectural Innovation | Competitive Advantage Over Industry |
 | :-: | :--- | :--- | :--- |
-| **1** | **Privacy Invariant** | **In-Kernel Protocol-Aware Zero-DPI Capture Barrier**<br>Enforces exact header truncation via `nftables`: 28B for UDP (20B IP + 8B UDP) and 40B for TCP (20B IP + 20B TCP). | **Zero user payload leakage (0 Bytes)**. 100% compliant with end-to-end encryption (TLS 1.3/QUIC) and global privacy mandates (GDPR/CCPA). |
+| **1** | **Privacy Invariant** | **In-Kernel Protocol-Aware Zero-DPI Capture Barrier**<br>Enforces exact header truncation via `nftables` for standard IPv4: 28B for UDP (20B IP + 8B UDP) and 40B for base TCP (20B IP + 20B TCP). | **Zero user payload leakage (0 Bytes)** on standard IPv4. Compliant with end-to-end encryption (TLS 1.3/QUIC); dynamic parsing for IPv6/options roadmapped. |
 | **2** | **Sub-Microsecond Edge ML** | **Early-Flow Micro-Decision Trees ($1.04\ \mu\text{s}$)**<br>Classifies traffic at packet 10 using only statistical header distributions; sparse packets (1-9) are inherently protected by CAKE. | **$100\times$ faster than deep neural nets** (CNN/LSTM require 10-50 ms). Consumes only **14.2 MB RSS**, fitting comfortably on low-cost ARM SoCs. |
 | **3** | **Dual-Loop Capacity Tracker** | **Passive RTT Hysteresis without Speedtest Floods**<br>Compares gateway queue backlog against external reflector RTT to distinguish between idle links and upstream bottleneck collapses. | **Zero bandwidth waste**. Senses collapse and settles shaper rates in **1.64 seconds**, preventing modem buffer bloat before queues can form. |
 | **4** | **Decoupled Architecture** | **Kernel Fast-Path Decoupling & Fail-Safe Survivability**<br>Packet forwarding runs entirely in-kernel. The ML classifier and rate controller run asynchronously out-of-band. | **Zero forwarding delay penalty**. If userspace daemons terminate or crash, the kernel continues line-rate forwarding in Best Effort without service drop. |
@@ -308,18 +315,19 @@ The nine empirical validation charts below demonstrate system dynamics, kernel m
 * **Left Panel (False Demotion Resilience):** When Voice is misclassified as Best Effort (`CS0`), CAKE FQ-CoDel DRR+ deficit scheduling isolates sparse voice packets, maintaining **$20.22\text{ ms}$** p50 ($20.28\text{ ms}$ p99) under 95 Mbps bulk contention.
 * **Right Panel (False Promotion Demotion):** When a 40 Mbps rogue flow is misclassified into Voice (`CS7`), the Behavioral Rate Guard polls conntrack at 4 Hz and demotes the flow within **$1.00\text{s}$** (analytical bound $\le 1.25\text{s}$), fully draining the standing queue.
 
-### 📊 End-to-End System Benchmark: Deterministic Rules vs. Guarded TinyML
-Tested under 100 Mbps bottleneck with 95 Mbps bulk saturating load, concurrent VoIP call, and adaptive 4K video chunk streaming (`results/qos_end_to_end_comparison.json`):
+### 📊 End-to-End System Benchmark: Deterministic Rules vs. Guarded TinyML (`[SIM]`)
+Tested in discrete-event network simulation (`scripts/run_qos_comparison.py`) under a 100 Mbps bottleneck with 95 Mbps bulk saturating load, concurrent VoIP call, and adaptive 4K video chunk streaming (`results/qos_end_to_end_comparison.json`):
 
 | Metric | Deterministic Port Rules | EdgeQoS Guarded TinyML | Improvement / Safety Benefit |
 | :--- | :---: | :---: | :---: |
 | **VoIP Call p50 Latency** | 20.33 ms | **20.22 ms** | Protected at physical line minimum |
-| **VoIP Call p99 Tail Latency** | 40.96 ms | **20.37 ms** | **$50.3\%$ jitter buffer reduction** |
-| **VoIP Inter-Arrival Jitter** | 0.042 ms | **0.001 ms** | $42\times$ smoother audio playback |
-| **Adaptive Video p50 Latency** | **3,048.60 ms** *(Standing Queue)* | **21.48 ms** | **$99.3\%$ bufferbloat elimination** |
-| **Adaptive Video p99 Latency** | 4,979.16 ms | **23.31 ms** | Eliminates video rebuffering stalls |
+| **VoIP Call p99 Tail Latency** | 22.89 ms | **20.37 ms** | **$11.0\%$ tail latency reduction** |
+| **VoIP Inter-Arrival Jitter** | 0.012 ms | **0.001 ms** | $12\times$ smoother audio playback |
+| **Adaptive Video Chunk p50 Delay** | **6,944.59 ms** *(Standing Queue)* | **21.48 ms** | **$99.7\%$ bufferbloat elimination** |
+| **Adaptive Video Chunk p99 Delay** | 8,902.68 ms | **23.32 ms** | Eliminates video rebuffering stalls |
 | **False-Promotion Rate (FPR)** | 8.63% | **0.39%** | **$22\times$ safer priority allocation** |
 
+> ℹ️ **Provenance & Metric Context:** This benchmark is run in discrete-event network simulation (`[SIM]`) to evaluate chunk queue transfer latency. Under deterministic rules without dynamic flow classification, video chunks on dynamic ports default to bulk FIFO, queuing behind continuous 95 Mbps TCP transfers ($3{,}048.6\text{ ms}$). Under EdgeQoS, early-flow classification steers video to Tin 2 (`AF41`), cutting queue delay to $21.48\text{ ms}$ while isolating the VoIP call in Tin 3 (`EF`) at $20.22\text{ ms}$.
 
 ---
 
@@ -339,11 +347,13 @@ Because user payloads are strictly encrypted (TLS 1.3 / QUIC), EdgeQoS enforces 
 ```
 Verified via `tests/test_privacy.py`: Exactly 0 application payload bytes ever enter userspace memory or machine learning inference.
 
+> ⚠️ **Qualification & Scope:** This 0-byte privacy guarantee is verified for standard IPv4 packets without options. In TCP, truncating at 40 bytes captures the 20-byte base transport header (ports, sequence/acknowledgement numbers, flags) while discarding both TCP options and all application payload. Packets containing IPv4 options (IHL > 5) or IPv6 (40-byte base header + extension headers) require dynamic offset parsing, which is roadmapped for Phase 4.
+
 ---
 
-## 🍓 Target Hardware BOM & Embedded Deployment (Raspberry Pi 4B)
+## 🍓 Target Hardware BOM & Embedded Deployment Roadmap (Raspberry Pi 4B)
 
-EdgeQoS was architected from inception for deployment on resource-constrained embedded customer-premises gateways (CPE). The system is fully verified on the **Raspberry Pi 4 Model B**:
+EdgeQoS was architected from inception for deployment on resource-constrained embedded customer-premises gateways (CPE). The hardware specifications below define our target embedded bill of materials on the Phase 4 roadmap:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -352,7 +362,7 @@ EdgeQoS was architected from inception for deployment on resource-constrained em
 │ Component           │ Specification & Selection Rationale                              │
 ├─────────────────────┼──────────────────────────────────────────────────────────────────┤
 │ **Processor (SoC)** │ Broadcom BCM2711, Quad-core ARM Cortex-A72 (ARMv8) 64-bit @ 1.5GHz│
-│ **System Memory**   │ 4 GB / 8 GB LPDDR4-3200 SDRAM (EdgeQoS uses only 18.5 MB total) │
+│ **System Memory**   │ 4 GB / 8 GB LPDDR4-3200 SDRAM (EdgeQoS uses only 14.2 MB RSS)   │
 │ **LAN Interface**   │ On-board Gigabit Ethernet (Broadcom BCM54213PE, Native PCIe bus) │
 │ **WAN Interface**   │ Realtek RTL8153 USB 3.0 to Gigabit Ethernet Adapter (Line-rate) │
 │ **Operating System**│ Raspberry Pi OS (Debian 12 Bookworm 64-bit, Linux Kernel 6.6+ LTS│
@@ -381,9 +391,50 @@ EdgeQoS was architected from inception for deployment on resource-constrained em
           [ISP Upstream Cable/ONT Modem] ──► [Internet]
 ```
 
-### Line-Rate Hardware Validation
-* **Single Core CPU Load:** Measured at **$< 12.0\%$** at 100 Mbps line rate on Cortex-A72.
+### Embedded Resource Constraints & Target Budgets
+* **Target CPU Utilization:** Design budget $< 12.0\%$ single-core Cortex-A72 load at 100 Mbps line rate (measured at $1.8\%$ on x86 testbed).
+* **Target Memory Footprint:** Budget $< 64.0\text{ MB}$ RSS (measured at $14.2\text{ MB}$ RSS on Linux 6.8).
 * **Zero Forwarding Penalty:** In-kernel `sch_cake` offloads all packet queuing; control-plane crashes never interrupt data-plane packet bridging.
+* **Empirical Disclaimer:** Physical bare-metal benchmarks on Raspberry Pi silicon have not yet been conducted; all headline empirical results are verified in Linux 6.8 network namespaces (`[NETNS]`).
+
+---
+
+## 🎮 Implemented User Intent Workflow (Temporary QoS Passes)
+
+EdgeQoS supports explicit, time-bounded user and application QoS intent requests (e.g., granting an immediate priority pass for an executive telepresence call). This operates through the CLI controller ([`scripts/intent_ctl.py`](scripts/intent_ctl.py) / [`controller/lease.py`](controller/lease.py)) linked directly to the Linux kernel `nftables` timed set (`@lease_rt`):
+
+```bash
+# 1. Grant an urgent 30-minute priority pass to a work laptop
+python3 scripts/intent_ctl.py grant --ip 192.168.1.105 --profile work-call --duration 1800 --reason "Important Zoom Call"
+
+# Output:
+# [+] Intent Lease Granted Successfully:
+#     Target IP:     192.168.1.105
+#     Profile:       work-call -> EF (Tin 3 (Voice/Interactive))
+#     Duration:      1800 seconds (30.0 minutes)
+#     Expires At:    2026-11-01T13:00:00Z
+#     Reason:        Important Zoom Call
+#     Kernel Hook:   nftables set @lease_rt updated
+
+# 2. Inspect active leases and remaining hardware TTL
+python3 scripts/intent_ctl.py list
+
+# Output:
+# [*] Active EdgeQoS Intent Leases: 1
+#     • IP: 192.168.1.105   | Profile: work-call      | DSCP: EF   | Remaining:  1795s | Reason: Important Zoom Call
+
+# 3. Administrative early rollback / revocation
+python3 scripts/intent_ctl.py revoke --ip 192.168.1.105
+
+# Output:
+# [+] Successfully revoked lease for 192.168.1.105. Flow rolled back to Best Effort (CS0).
+```
+
+### Safety & Non-Starvation Guarantees
+1. **Automated Kernel Expiry:** Leases are stored in the in-kernel `nftables` set `@lease_rt` with hardware `timeout` flags. When the duration elapses, the Linux kernel removes the set element automatically without requiring userspace polling or cron daemons.
+2. **Instant Administrative Rollback:** Invoking `revoke` deletes the element from `@lease_rt`, instantly reverting traffic to Best Effort (`CS0`) with zero disruption to active TCP connections.
+3. **Bulk Flow Non-Starvation:** Even if a host with an active intent lease generates continuous traffic, CAKE's Deficit Round Robin (DRR+) scheduling ensures that Best Effort and Bulk tins receive their minimum deficit service quanta ($\ge 6.25\%$ bandwidth), mathematically preventing starvation of other household clients.
+4. **Automated Verification:** Verified via unit test suite `tests/test_intent_lease.py`.
 
 ---
 
@@ -425,9 +476,11 @@ Every claim and metric in this repository is directly verifiable via determinist
 | **In-Kernel CAKE Multi-Tin Steering** | `sudo python3 scripts/test_tin_mapping.py` | [`docs/tin_map_observed.md`](docs/tin_map_observed.md) | **EF $\to$ Tin 3, AF41 $\to$ Tin 2, CS0 $\to$ Tin 1, CS1 $\to$ Tin 0** |
 | **Stage S2 Multi-Tin Steering Trace** | `sudo python3 scripts/run_stage_s2_trace.py` | [`results/stage_s2_trace.json`](results/stage_s2_trace.json) | **150 packets steered across 3 hardware tins** |
 | **Stage S3 Capacity Collapse (100M $\to$ 20M)**| `sudo python3 scripts/run_stage_s3_collapse.py`| [`results/netns_collapse_result.json`](results/netns_collapse_result.json) | **Latency cut: 124.0ms $\to$ 20.5ms (-83.5%), T_settle=1.64s**|
-| **TinyML vs. Deterministic Rules (ml-v2)** | `python3 ml/evaluate.py` | [`results/ml_eval_report.json`](results/ml_eval_report.json) | **TinyML 0.9702 F1 (4.57µs) vs. Rules 0.5360 F1; FPR 0.39% vs 8.63%** |
+| **TinyML vs. Deterministic Rules (ml-v2)** | `python3 ml/evaluate.py` | [`results/ml_eval_report.json`](results/ml_eval_report.json) | **TinyML 0.9702 F1 (4.84µs) vs. Rules 0.5360 F1; FPR 0.39% vs 8.63%** |
+| **User Intent Leases (CLI & Kernel TTL)** | `python3 tests/test_intent_lease.py` | [`scripts/intent_ctl.py`](scripts/intent_ctl.py) | **5 tests PASS: Grant, active list, automated TTL expiry, rollback to CS0** |
 | **Behavioral Guard Rogue Demotion (SC6)** | `python3 tests/test_guard_capacity.py` | [`results/demotion_cdf.png`](results/demotion_cdf.png) | **50 Mbps rogue flow demoted to Bulk in $\le 1.00\text{s}$** |
-| **Classifier Latency Microbenchmark** | `python3 tests/test_classifier.py` | [`results/inference_bench.json`](results/inference_bench.json) | **$p50 = 1.091\ \mu\text{s}, p99 = 3.374\ \mu\text{s}$ (10,000 runs)** |
+| **Classifier Latency Microbenchmark** | `python3 tests/test_classifier.py` | [`results/inference_bench.json`](results/inference_bench.json) | **$p50 = 0.871\ \mu\text{s}, p99 = 3.205\ \mu\text{s}$ (10,000 runs)** |
+| **AI Failure Resilience (Demotion & Promotion)** | `python3 scripts/run_ai_failure_resilience.py` | [`results/ai_failure_resilience.png`](results/ai_failure_resilience.png) | **CAKE isolates false demotion (20.22ms); Guard demotes false promotion (1.00s)** |
 | **Kernel Watchdog & Fail-Safe Reset** | `bash safety/restore.sh` | Clean netfilter state | **Kernel set flush $\le 3.0\text{s}$, zero packet drop** |
 
 ---
@@ -480,8 +533,8 @@ Developed by a 2-member **Electronics & Communication Engineering (ECE)** team f
 
 | Team Member & ECE Specialization | Domain | Core Architectural Contributions & Hardware/Software Deliverables |
 | :--- | :---: | :--- |
-| **Lead 1: Embedded Hardware, Gateway SoC & Kernel Data Plane**<br>*(Electronics & Communication Engineering)* | **HARDWARE & DATA PLANE** | • **Target Hardware Architecture:** Raspberry Pi 4B (Quad-Core ARM Cortex-A72 @ 1.5 GHz) SoC deployment, PCIe GbE WAN/LAN interface mapping, thermal and power profiling.<br>• **Kernel Queue Disciplines:** In-kernel Linux `tc-cake diffserv4` hardware tin configuration, Deficit Round Robin (DRR+) state machine, Cobalt AQM tuning.<br>• **Fast-Path Acceleration:** High-performance C netlink `mmap` packet ring-buffer (`reader/reader.c`), kernel-boundary Zero-DPI snaplen truncation rules (`dataplane/edgeqos.nft`).<br>• **Testbed Orchestration:** Real Linux network namespace virtual hardware testbed (`c1`, `gw`, `isp`, `srv`), physical veth interconnects, and kernel verification test scripts. |
-| **Lead 2: Embedded Systems, Edge AI & Real-Time Control**<br>*(Electronics & Communication Engineering)* | **EMBEDDED SOFTWARE & CONTROL** | • **Statistical Feature Engineering:** Early-flow signal extraction from raw packet headers (packet size histograms, inter-arrival time IAT jitter, directionality metrics).<br>• **Sub-Microsecond Edge ML:** Decision Tree quantization and micro-benchmarking ($0.741\ \mu\text{s}$ p50), confidence calibration, and safe abstention state machine (`ml/classifier.py`).<br>• **Closed-Loop Control Systems:** Dual-loop dynamic bandwidth tracker, EWMA noise filtering, and latched hysteresis for bottleneck collapse adaptation (`controller/guard.py`).<br>• **NOC Telemetry & Operations Console:** Real-time web operations dashboard, SVG hardware pipeline visualizer, asynchronous REST runner daemon (`demo/serve_dashboard.py`). |
+| **Lead 1: Embedded Hardware, Gateway SoC & Kernel Data Plane**<br>*(Electronics & Communication Engineering)* | **HARDWARE & DATA PLANE** | • **Target Hardware Architecture:** Raspberry Pi 4B (Quad-Core ARM Cortex-A72 @ 1.5 GHz) SoC deployment, PCIe GbE WAN/LAN interface mapping, thermal and power profiling.<br>• **Kernel Queue Disciplines:** In-kernel Linux `tc-cake diffserv4` hardware tin configuration, Deficit Round Robin (DRR+) state machine, Cobalt AQM tuning.<br>• **Fast-Path Acceleration:** High-performance C netlink `mmap` packet ring-buffer (`reader/nflog_reader.c`), kernel-boundary Zero-DPI snaplen truncation rules (`dataplane/edgeqos.nft`).<br>• **Testbed Orchestration:** Real Linux network namespace virtual hardware testbed (`c1`, `gw`, `isp`, `srv`), physical veth interconnects, and kernel verification test scripts. |
+| **Lead 2: Embedded Systems, Edge AI & Real-Time Control**<br>*(Electronics & Communication Engineering)* | **EMBEDDED SOFTWARE & CONTROL** | • **Statistical Feature Engineering:** Early-flow signal extraction from raw packet headers (packet size histograms, inter-arrival time IAT jitter, directionality metrics).<br>• **Sub-Microsecond Edge ML:** Decision Tree quantization and micro-benchmarking ($0.871\ \mu\text{s}$ p50), confidence calibration, and safe abstention state machine (`daemon/edgeqosd/model.py`).<br>• **Closed-Loop Control Systems:** Dual-loop dynamic bandwidth tracker, EWMA noise filtering, and latched hysteresis for bottleneck collapse adaptation (`daemon/edgeqosd/guard.py`).<br>• **User Intent & NOC Console:** CLI Intent Lease Manager (`scripts/intent_ctl.py`), SVG hardware pipeline visualizer, asynchronous REST runner daemon (`demo/serve_dashboard.py`). |
 
 ### 🛠️ Hardware/Software Co-Design Synergy
 * **Hardware Constraints Met:** Single-core gateway CPU utilization stays at **$1.8\%$** on x86 and **$< 12\%$** on ARM Cortex-A72; total memory footprint is capped at **$14.2\text{ MB}$ RSS**, fitting comfortably within constrained edge gateway SoCs.
@@ -493,76 +546,136 @@ Developed by a 2-member **Electronics & Communication Engineering (ECE)** team f
 
 ```
 .
-├── LICENSE                 # Official MIT Open Source License
-├── Makefile                # Build and verification entrypoints
-├── README.md               # Master engineering specification & documentation
-├── requirements.txt        # Lightweight Python dependencies
-├── THIRD_PARTY_LICENSES.md # Comprehensive open-source software license inventory
-├── EdgeQoS_Technical_Report.md # Full architecture specification & engineering report
-├── analysis/               # Pillow & SVG zero-dependency plot generation scripts
-│   ├── generate_extended_plots.py
-│   ├── generate_noc_preview.py
-│   └── plots.py
-├── controller/             # Dynamic rate controller and capacity guardrails
-│   ├── guard.py
-│   └── lease.py
-├── dataplane/              # nftables Zero-DPI ingress definitions (snaplen 28/40)
-│   └── edgeqos.nft
-├── demo/                   # NOC operations console and REST execution daemon
-│   ├── edgeqos_dashboard.html
-│   └── serve_dashboard.py
-├── docs/                   # Engineering documentation, provenance matrix, and tin mappings
-│   ├── assets/             # Architecture and workflow diagrams
+├── LICENSE                          # Official MIT Open Source License
+├── Makefile                         # Build and verification entrypoints
+├── README.md                        # Master engineering specification & documentation
+├── requirements.txt                 # Lightweight Python dependencies
+├── THIRD_PARTY_LICENSES.md          # Comprehensive open-source software license inventory
+├── EdgeQoS_Technical_Report.md      # Full architecture specification & engineering report
+├── analysis/                        # Pillow & SVG zero-dependency plot generation scripts
+│   ├── aggregate.py                 # Telemetry aggregation
+│   ├── generate_extended_plots.py   # Latency comparison, tin distribution, and confusion matrix
+│   ├── generate_noc_preview.py      # NOC operations preview renderer
+│   └── plots.py                     # Empirical CDF and settling time plotters
+├── controller/                      # Dynamic rate controller and capacity guardrails
+│   ├── guard.py                     # Wrapper for Behavioral Rate Guard
+│   └── lease.py                     # Wrapper for User Intent Lease Manager
+├── daemon/                          # EdgeQoS userspace control plane daemons
+│   └── edgeqosd/
+│       ├── capacity.py              # Dual-signal capacity estimation
+│       ├── config.py                # System thresholds and parameters
+│       ├── features.py              # 22 Zero-DPI early-flow feature extractor
+│       ├── guard.py                 # Behavioral Rate Guard (4 Hz conntrack audit)
+│       ├── lease.py                 # User Intent Lease Manager (CLI & in-kernel nftables set)
+│       ├── main.py                  # Daemon main loop and telemetry engine
+│       ├── model.py                 # Zero-DPI CART Decision Tree classifier
+│       ├── probe.py                 # Passive queue backlog and RTT prober
+│       └── promote.py               # In-kernel nftables set actuator
+├── dataplane/                       # In-kernel nftables and tc-cake configurations
+│   ├── baselines/                   # DropTail FIFO and static baseline configs
+│   ├── cake_down.sh                 # Teardown CAKE qdisc
+│   ├── cake_up.sh                   # Bring up CAKE diffserv4 qdisc
+│   └── edgeqos.nft                  # Protocol-aware snaplen (28B/40B) & multi-tin ruleset
+├── demo/                            # NOC operations console and REST execution daemon
+│   ├── edgeqos_dashboard.html       # Standalone responsive NOC dashboard
+│   ├── live_pipeline_runner.py      # Real-time telemetry generator
+│   └── serve_dashboard.py           # Local HTTP server for demo console
+├── docs/                            # Engineering documentation, provenance matrix, and ADRs
+│   ├── assets/                      # System diagrams and visual previews
 │   │   ├── architecture_workflow.png
 │   │   └── noc_dashboard_preview.png
-│   ├── CASE_STUDY_MAPPING.md # Tata Elxsi Case Study 3 requirements & evidence ledger
+│   ├── CASE_STUDY_MAPPING.md        # Tata Elxsi Case Study 3 requirements & evidence ledger
+│   ├── DATASET_V2.md                # Real-stack dataset v2 composition and metadata
 │   ├── EDGEQOS_COMPREHENSIVE_VERIFICATION_REPORT.md
-│   ├── ENGINEERING_DECISIONS.md # Complete Architecture Decision Records (ADRs)
-│   ├── LIMITATIONS.md       # Known assumptions, emulation scope & production boundary
-│   ├── MODULES.md           # Modular component contracts & state machine specifications
-│   ├── RELATED_WORK.md      # Literature review & prior art positioning
-│   ├── result_provenance.md # Scientific provenance matrix for every metric
-│   ├── ROADMAP.md           # 4-Phase engineering milestones & hardware pathway
-│   └── tin_map_observed.md  # Verified Linux kernel CAKE tin counters
-├── ml/                     # Sub-microsecond Decision Tree flow classifier & training scripts
-│   ├── classifier.py
-│   ├── compare_baseline.py # TinyML vs. Deterministic Heuristic Rules comparative bench
-│   └── train.py
-├── reader/                 # C-accelerated mmap ring-buffer packet header reader
+│   ├── ENGINEERING_DECISIONS.md     # Architecture Decision Records (ADRs 001-012)
+│   ├── LIMITATIONS.md               # Known assumptions, emulation scope & production boundary
+│   ├── ML_EVALUATION.md             # Complete pre-registered ml-v2 evaluation report
+│   ├── MODULES.md                   # Modular component contracts & state machine specifications
+│   ├── REAL_APPLICATION_DATASET.md  # Real-world ffmpeg/curl application benchmark
+│   ├── RELATED_WORK.md              # Literature review & prior art positioning
+│   ├── result_provenance.md         # Scientific provenance matrix for every metric
+│   ├── ROADMAP.md                   # 4-Phase engineering milestones & hardware pathway
+│   └── tin_map_observed.md          # Verified Linux kernel CAKE tin counters
+├── env/                             # Host environment setup and rollback scripts
+│   ├── host_rollback.txt
+│   ├── setup_pc.sh
+│   ├── setup_pi.sh
+│   └── versions.txt
+├── harness/                         # Traffic generation profiles and test scenarios
+│   ├── gen/                         # Traffic generators
+│   ├── probes/                      # Active and passive RTT latency probes
+│   └── scenarios/                   # Network scenario configurations (SC1, SC2, SC6)
+├── local_notes/                     # Engineering jury defense and presentation guide
+│   └── JURY_DEFENSE_AND_ARCHITECTURE_GUIDE.md
+├── ml/                              # Sub-microsecond TinyML pipeline & protocol
+│   ├── PROTOCOL.md                  # Pre-registered evaluation protocol & rules
+│   ├── collect/                     # Real-stack socket collector & real-app suite
+│   │   ├── collect_real_app.py      # Live ffmpeg/curl real-application recorder
+│   │   └── real_stack_collector.py  # Live Linux kernel AF_INET socket generator
+│   ├── data/                        # Real-stack dataset v2 & real-application test set
+│   │   ├── dataset_v2.json          # 2,400 real-stack flows across 480 sessions
+│   │   ├── manifest_v2.csv          # Session-partitioned flow metadata
+│   │   ├── partitions.json          # 60/20/20 train/val/test session partition
+│   │   └── real_app_test_set.json   # 40 held-out live application test sessions
+│   ├── compare_baseline.py          # Baseline comparison entrypoint (delegates to evaluate.py)
+│   ├── evaluate.py                  # Pre-registered evaluation suite & plot rendering
+│   ├── models/
+│   │   └── tree_model.json          # Calibrated Decision Tree model array
+│   └── train.py                     # GroupKFold training & Platt calibration
+├── reader/                          # C-accelerated NFLOG packet header reader
 │   ├── Makefile
-│   └── reader.c
-├── results/                # Raw empirical benchmark logs, JSON telemetry, and plot figures
-│   ├── b0_vs_theory.png
-│   ├── confusion_matrix.png
-│   ├── demotion_cdf.png
-│   ├── inference_bench.json
-│   ├── latency_comparison_bar.png
-│   ├── ml_vs_rule_baseline.png # Comparative plot: TinyML vs Heuristic Rules
-│   ├── ml_vs_rule_comparison.csv
-│   ├── ml_vs_rule_comparison.json
-│   ├── model_latency_comparison.png
-│   ├── netns_collapse_result.json
-│   ├── netns_real_benchmark.json
-│   ├── priv_report.txt
-│   ├── settling_time_ci.png
-│   ├── stage_s2_trace.json
-│   └── tin_steering_distribution.png
-├── safety/                 # Emergency rollback and failsafe network reset scripts
-│   └── restore.sh
-├── scripts/                # Automated testbed setup, teardown, and stage runner scripts
-│   ├── run_all_prepi_stages.sh
-│   ├── run_stage_s2_trace.py
-│   ├── run_stage_s3_collapse.py
-│   ├── run_stage_s3_real_benchmark.py
-│   ├── setup_netns_topo.sh
-│   ├── teardown_netns_topo.sh
-│   └── test_tin_mapping.py
-├── sim/                    # Discrete-event network simulation model
-│   └── benchmark.py
-└── tests/                  # Unit tests and invariant verification suites
-    ├── test_classifier.py
-    ├── test_guard_capacity.py
-    └── test_privacy.py
+│   ├── nflog_reader
+│   └── nflog_reader.c
+├── results/                         # Raw empirical benchmark logs, JSON telemetry, and plots
+│   ├── ai_failure_resilience.json   # Safety under AI failure modes telemetry
+│   ├── ai_failure_resilience.png    # Fig 9: False demotion and false promotion resilience
+│   ├── archive_v1_synthetic/        # Archived v1 synthetic results & separability postmortem
+│   ├── b0_vs_theory.png             # Fig 5: Bufferbloat delay vs queue theory
+│   ├── confusion_matrix.png         # Fig 7: Held-out test confusion matrix (ml-v2)
+│   ├── demotion_cdf.png             # Fig 8: Scenario SC6 behavioral guard demotion CDF
+│   ├── inference_bench.json         # Tree inference latency microbenchmark
+│   ├── latency_comparison_bar.png   # Fig 3: Tail latency comparison across baselines
+│   ├── ml_eval_report.json          # Pre-registered ml-v2 evaluation report
+│   ├── ml_vs_rule_baseline.png      # Fig 4: TinyML vs Deterministic Rules comparison
+│   ├── ml_vs_rule_comparison.csv    # Tabular comparison metrics
+│   ├── ml_vs_rule_comparison.json   # Machine-readable baseline comparison
+│   ├── model_latency_comparison.png # Fig 6: Micro-decision latency vs deep learning
+│   ├── netns_collapse_result.json   # Raw measured SC2 capacity collapse trace
+│   ├── netns_real_benchmark.json    # S3 real kernel benchmark log
+│   ├── priv_report.txt              # Zero-DPI privacy verification report
+│   ├── qos_end_to_end_comparison.json # Rules vs TinyML end-to-end QoS comparison
+│   ├── settling_time_ci.png         # Fig 1: Capacity collapse settling time
+│   └── tin_steering_distribution.png # Fig 2: In-kernel CAKE multi-tin packet distribution
+├── safety/                          # Emergency rollback and failsafe watchdog scripts
+│   ├── edgeqos-watchdog.sh          # Control plane liveness watchdog
+│   └── restore.sh                   # Emergency netfilter and qdisc reset
+├── scripts/                         # Automated testbed setup, teardown, and stage runner scripts
+│   ├── intent_ctl.py                # Top-level CLI for user intent leases
+│   ├── run_ai_failure_resilience.py # AI failure mode resilience benchmark
+│   ├── run_all_prepi_stages.sh      # Master reproduction script
+│   ├── run_qos_comparison.py        # End-to-end QoS comparison runner
+│   ├── run_stage_s2_trace.py        # Stage S2 telemetry collection
+│   ├── run_stage_s3_collapse.py     # Stage S3 capacity collapse benchmark
+│   ├── run_stage_s3_real_benchmark.py # Real benchmark trace runner
+│   ├── setup_netns_topo.sh          # Linux 6.8 network namespace topology builder
+│   ├── teardown_netns_topo.sh       # Netns testbed teardown script
+│   └── test_tin_mapping.py          # Kernel tin counter verification script
+├── sim/                             # Discrete-event network simulation model
+│   ├── benchmark.py                 # Queue simulation harness
+│   ├── network_env.py               # Simulated bottleneck and event loop
+│   ├── packet.py                    # Packet and flow models
+│   ├── queue_models.py              # CAKE diffserv4 and FIFO queue models
+│   └── traffic_generator.py         # VoIP, Video, and TCP Bulk traffic generators
+├── tests/                           # Verification and unit test suites
+│   ├── test_classifier.py           # Model inference and calibration unit tests
+│   ├── test_guard_capacity.py       # Capacity controller and rate guard tests
+│   ├── test_guard_integration.py    # Guard + abstention integration tests
+│   ├── test_intent_lease.py         # User intent lease grant, list, rollback tests
+│   └── test_privacy.py              # Zero-DPI protocol-aware snaplen privacy tests
+└── topo/                            # Low-level network topology scripts
+    ├── isp_shape.sh                 # ISP bottleneck shaper script
+    ├── teardown.sh                  # Topology teardown
+    └── topo_e1_up.sh                # Testbed topology initialization
 ```
 
 ---

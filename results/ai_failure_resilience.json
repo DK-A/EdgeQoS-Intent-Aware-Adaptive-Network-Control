@@ -1,7 +1,7 @@
 {
   "core_thesis": "EdgeQoS is not a system that assumes its AI is always correct. It is a QoS controller designed to remain safe when its AI is uncertain or wrong.",
   "false_demotion_voice_in_cs0": {
-    "p50_ms": 20.22,
+    "p50_ms": 20.21,
     "p95_ms": 20.27,
     "p99_ms": 20.28,
     "jitter_ms": 0.04,
@@ -9,7 +9,7 @@
   },
   "false_promotion_bulk_in_cs5": {
     "without_guard_p99_ms": 20.39,
-    "with_guard_p99_ms": 20.27,
+    "with_guard_p99_ms": 20.26,
     "demotion_latency_sec": 1.0,
     "formula_bound_sec": 1.25,
     "protection_mechanism": "Behavioral Rate Guard (4 Hz conntrack rate supervision)"

@@ -188,9 +188,9 @@ def draw_confusion_matrix(output_path="results/confusion_matrix.png"):
     d = ImageDraw.Draw(img)
 
     d.text((40, 20), "EdgeQoS TinyML Traffic Classifier: Confusion Matrix", fill=(15, 23, 42))
-    d.text((40, 42), "Empirical test evaluation across 2,400 balanced early-flow sequences (Macro F1 = 1.0)", fill=(100, 116, 139))
+    d.text((40, 42), "Empirical test evaluation across 480 held-out flows (96 sessions) | Macro F1 = 0.9702", fill=(100, 116, 139))
 
-    labels = ["Voice", "Video", "Best-Effort", "Bulk"]
+    labels = ["Voice", "Video", "Bulk", "Other"]
     n = len(labels)
     mat_x, mat_y = 140, 90
     cell_sz = 85
@@ -202,6 +202,14 @@ def draw_confusion_matrix(output_path="results/confusion_matrix.png"):
         d.text((mat_x + col * cell_sz + 18, mat_y + n * cell_sz + 10), l, fill=(15, 23, 42))
         d.text((mat_x - 80, mat_y + col * cell_sz + 32), l, fill=(15, 23, 42))
 
+    # Empirical ml-v2 held-out test confusion matrix (480 flows)
+    cm = [
+        [99, 0, 0, 11],
+        [0, 115, 0, 0],
+        [0, 0, 149, 1],
+        [1, 0, 0, 104]
+    ]
+
     for r in range(n):
         for c in range(n):
             x1 = mat_x + c * cell_sz
@@ -209,12 +217,14 @@ def draw_confusion_matrix(output_path="results/confusion_matrix.png"):
             x2 = x1 + cell_sz
             y2 = y1 + cell_sz
 
+            val = cm[r][c]
             if r == c:
-                val = 600
                 cell_color = (16, 185, 129)
                 txt_color = (255, 255, 255)
+            elif val > 0:
+                cell_color = (254, 226, 226)
+                txt_color = (185, 28, 28)
             else:
-                val = 0
                 cell_color = (241, 245, 249)
                 txt_color = (148, 163, 184)
 
@@ -223,7 +233,7 @@ def draw_confusion_matrix(output_path="results/confusion_matrix.png"):
 
     # Metrics summary
     d.rectangle([(mat_x, mat_y + n * cell_sz + 40), (mat_x + n * cell_sz, mat_y + n * cell_sz + 80)], fill=(241, 245, 249), outline=(203, 213, 225))
-    d.text((mat_x + 20, mat_y + n * cell_sz + 52), "Accuracy: 100.0%  |  Macro F1: 1.000  |  ECE: 0.000", fill=(16, 185, 129))
+    d.text((mat_x + 10, mat_y + n * cell_sz + 52), "Accuracy: 97.29%  |  Macro F1: 0.9702  |  FPR: 0.39%", fill=(16, 185, 129))
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     img.save(output_path)
