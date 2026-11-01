@@ -3,7 +3,9 @@ tests/test_classifier.py - Unit Tests & Latency Benchmark for ZeroDPIClassifier
 """
 
 import os
+import sys
 import json
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from daemon.edgeqosd.model import ZeroDPIClassifier
 
 def test_classifier():

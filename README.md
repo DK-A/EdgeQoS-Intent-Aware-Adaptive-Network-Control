@@ -7,7 +7,43 @@
 [![Target Platform](https://img.shields.io/badge/Hardware-Raspberry%20Pi%204B%20%7C%20x86__64-orange?style=for-the-badge)](docs/result_provenance.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
 
-> **EdgeQoS** is an autonomous, privacy-preserving Active Queue Management (AQM) system designed for residential broadband gateways. Developed for the **Tata Elxsi TELIPORT Season 4 Hackathon (Problem Statement 3: Media & Communications)**, it eliminates standing bufferbloat and bounds latency for real-time traffic (VoIP, video conferencing, cloud gaming) during upstream bandwidth collapse without inspecting encrypted packet payloads (Zero-DPI).
+> **EdgeQoS** is an autonomous, privacy-preserving Active Queue Management (AQM) system designed for residential broadband gateways. Developed for the **Tata Elxsi TELIPORT Season 4 Hackathon (Case Study 3: Adaptive QoS Engine for Mixed Home Broadband Traffic)**, it eliminates standing bufferbloat and bounds latency for real-time traffic (VoIP, video conferencing, cloud gaming) during upstream bandwidth collapse without inspecting encrypted packet payloads (Zero-DPI).
+
+---
+
+## 🚦 System Status at a Glance (Round 1 Submission)
+
+*Evidence-gated status auditing. Every claim is strictly grounded in verifiable code and reproducible test artifacts.*
+
+| Subsystem / Area | Status | Evidence / Verification Artifact |
+| :--- | :---: | :--- |
+| **Namespace Testbed & Bottleneck Emulator** | ✅ Implemented & tested | [`scripts/setup_netns_topo.sh`](scripts/setup_netns_topo.sh) · [`docs/MODULES.md`](docs/MODULES.md) |
+| **Zero-DPI In-Kernel Snaplen (28B UDP / 40B TCP)** | ✅ Implemented & tested | [`dataplane/edgeqos.nft`](dataplane/edgeqos.nft) · [`tests/test_privacy.py`](tests/test_privacy.py) (**0B Leak PASS**) |
+| **Early-Flow TinyML Classifier ($0.741\ \mu\text{s}$)** | ✅ Implemented & tested | [`ml/classifier.py`](ml/classifier.py) · [`results/inference_bench.json`](results/inference_bench.json) |
+| **Calibrated Confidence Abstention ($\tau = 0.70$)** | ✅ Implemented & tested | [`ml/classifier.py`](ml/classifier.py) · [`results/ml_eval_report.json`](results/ml_eval_report.json) |
+| **Linux Kernel CAKE (`diffserv4`) + Timed Sets** | ✅ Implemented & tested | [`dataplane/edgeqos.nft`](dataplane/edgeqos.nft) · [`results/tin_steering_distribution.png`](results/tin_steering_distribution.png) |
+| **Behavioral Rate Guard Demotion ($SC_6$)** | ✅ Implemented & tested | [`controller/guard.py`](controller/guard.py) · [`results/demotion_cdf.png`](results/demotion_cdf.png) ($\le 1.25\text{s}$) |
+| **Passive Capacity Tracking ($SC_2$ Collapse)** | ✅ Implemented & tested | [`controller/guard.py`](controller/guard.py) · [`results/netns_collapse_result.json`](results/netns_collapse_result.json) ($1.64\text{s}$) |
+| **Fail-Safe Watchdog & State Rollback ($SC_9$)** | ✅ Implemented & tested | [`safety/restore.sh`](safety/restore.sh) · [`safety/edgeqos-watchdog.sh`](safety/edgeqos-watchdog.sh) |
+| **ML vs. Deterministic Rule Baseline** | 🔧 In progress | [`ml/train.py`](ml/train.py) · [`docs/CASE_STUDY_MAPPING.md`](docs/CASE_STUDY_MAPPING.md) |
+| **Temporary User Intent Leases** | 🟡 Partially tested | CLI verified ([`controller/lease.py`](controller/lease.py)); RESTful API planned |
+| **Operations Dashboard** | 🟡 Partially tested | Local NOC prototype ([`demo/edgeqos_dashboard.html`](demo/edgeqos_dashboard.html)); live telemetry |
+| **Dual-Stack IPv6 Support** | 📝 Planned | IPv6 fixed header + Flow Label parsing on roadmap ([`docs/ROADMAP.md`](docs/ROADMAP.md)) |
+| **Raspberry Pi 4B Physical Benchmarks** | 📝 Planned | Hardware BOM defined; netns execution verified; Phase 4 target ([`docs/ROADMAP.md`](docs/ROADMAP.md)) |
+
+> 📌 **Key Reference Engineering Documents:**  
+> • [**Case Study Requirement Mapping**](docs/CASE_STUDY_MAPPING.md) · [**Component Module Contracts**](docs/MODULES.md) · [**Engineering Architecture Decisions (ADRs)**](docs/ENGINEERING_DECISIONS.md)  
+> • [**Related Work & Literature Positioning**](docs/RELATED_WORK.md) · [**Known Limitations & Assumptions**](docs/LIMITATIONS.md) · [**Development Roadmap**](docs/ROADMAP.md) · [**Third-Party Licenses**](THIRD_PARTY_LICENSES.md)
+
+---
+
+## ⚡ Preliminary Headline Result (`[NETNS]`, Emulated Bottleneck)
+
+> **Empirical Validation (`[NETNS]`, Linux Kernel 6.8.0, Single-Topology Emulation):**  
+> In an isolated Linux network namespace testbed with real in-kernel CAKE and an emulated bottleneck (`tc-tbf` + `tc-netem`, buffer 256 KB, base RTT 20 ms), upstream capacity collapsed from **100 Mbps to 20 Mbps** while saturated bulk uploads contended with real-time telepresence.  
+> * **Unmanaged DropTail FIFO ($B_0$ Baseline):** Standing queue inflated to **$124.00\text{ ms}$** ($\approx \text{base RTT} + \text{BUF}/\text{rate}$).
+> * **EdgeQoS ($S_3$ Solution):** Sensed collapse without active speedtest flooding, clamped shaper, drained the buffer in **$1.64\text{ seconds}$**, and maintained median latency at **$20.50\text{ ms}$** (**$-83.5\%$ delay reduction**).  
+> * **Evidence & Provenance:** Raw measured data in [`results/netns_collapse_result.json`](results/netns_collapse_result.json); execution via `sudo python3 scripts/run_stage_s3_collapse.py`. Note: This is an emulated namespace result on an x86 testbed, not yet measured on physical Raspberry Pi silicon.
 
 ---
 
@@ -83,6 +119,37 @@ EdgeQoS addresses the fundamental shortcomings of existing industry solutions:
 
 ## 🏛️ System Architecture & Workflow
 
+### 1. Six-Layer Modular Architecture Decomposition
+```mermaid
+flowchart TB
+  subgraph DEV["1. Device Layer"]
+    D1["Home Devices: VoIP calls, gaming, 4K video, bulk updates"]
+  end
+  subgraph EDGE["2. Edge Gateway Layer (Linux)"]
+    K["Kernel Data Plane<br/>nftables (Zero-DPI sampling, timed sets) → CAKE diffserv4"]
+    U["Userspace Control Plane<br/>TinyML Classifier + Abstention · Behavioral Guard · Capacity Tracker"]
+    W["Safety Watchdog / Safe-State Restore"]
+  end
+  subgraph NET["3. Network Layer"]
+    N["WAN Bottleneck (Emulated in prototype via tc-tbf / netem)"]
+  end
+  subgraph DATA["4. Data & Analytics Layer"]
+    L["Decision Logs + Telemetry JSON/CSV"]
+    R["Automated Evaluation Scripts & Verification Plots"]
+  end
+  subgraph UI["5. User Interface Layer"]
+    I["Temporary-Intent CLI (controller/lease.py) · REST API (Planned)"]
+    B["Live NOC Operations Console (demo/edgeqos_dashboard.html)"]
+  end
+  D1 --> K --> N
+  K -->|"First-N packet metadata (Snaplen 28B/40B)"| U -->|"Timed DSCP marks, Shaper rate"| K
+  W -.->|"Heartbeat & fail-safe reset"| K
+  U --> L --> R
+  I -.-> U
+  R -.-> B
+```
+
+### 2. High-Level Gateway Data/Control Flow
 ![EdgeQoS System Architecture & Workflow](docs/assets/architecture_workflow.png)
 
 EdgeQoS divides duties strictly between **Userspace Intelligence (Control Plane)** and **In-Kernel Fast Path Enforcement (Data Plane)**:
@@ -414,6 +481,7 @@ Developed by a 2-member **Electronics & Communication Engineering (ECE)** team f
 ├── Makefile                # Build and verification entrypoints
 ├── README.md               # Master engineering specification & documentation
 ├── requirements.txt        # Lightweight Python dependencies
+├── THIRD_PARTY_LICENSES.md # Comprehensive open-source software license inventory
 ├── EdgeQoS_Technical_Report.md # Full architecture specification & engineering report
 ├── analysis/               # Pillow & SVG zero-dependency plot generation scripts
 │   ├── generate_extended_plots.py
@@ -431,10 +499,15 @@ Developed by a 2-member **Electronics & Communication Engineering (ECE)** team f
 │   ├── assets/             # Architecture and workflow diagrams
 │   │   ├── architecture_workflow.png
 │   │   └── noc_dashboard_preview.png
+│   ├── CASE_STUDY_MAPPING.md # Tata Elxsi Case Study 3 requirements & evidence ledger
 │   ├── EDGEQOS_COMPREHENSIVE_VERIFICATION_REPORT.md
 │   ├── ENGINEERING_DECISIONS.md # Complete Architecture Decision Records (ADRs)
-│   ├── result_provenance.md
-│   └── tin_map_observed.md
+│   ├── LIMITATIONS.md       # Known assumptions, emulation scope & production boundary
+│   ├── MODULES.md           # Modular component contracts & state machine specifications
+│   ├── RELATED_WORK.md      # Literature review & prior art positioning
+│   ├── result_provenance.md # Scientific provenance matrix for every metric
+│   ├── ROADMAP.md           # 4-Phase engineering milestones & hardware pathway
+│   └── tin_map_observed.md  # Verified Linux kernel CAKE tin counters
 ├── ml/                     # Sub-microsecond Decision Tree flow classifier & training scripts
 │   ├── classifier.py
 │   └── train.py
