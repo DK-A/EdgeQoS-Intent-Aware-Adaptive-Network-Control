@@ -1,0 +1,122 @@
+{
+  "dataset": {
+    "total_samples": 2400,
+    "samples_per_class": 600,
+    "classes": [
+      "Realtime",
+      "Stream",
+      "Bulk",
+      "Other"
+    ],
+    "condition": "Held-out synthetic traffic session evaluation"
+  },
+  "tiny_ml": {
+    "accuracy": 0.9991666666666666,
+    "macro_f1": 0.9991666643518454,
+    "precision": {
+      "Realtime": 0.9966777408637874,
+      "Stream": 1.0,
+      "Bulk": 1.0,
+      "Other": 1.0
+    },
+    "recall": {
+      "Realtime": 1.0,
+      "Stream": 1.0,
+      "Bulk": 1.0,
+      "Other": 0.9966666666666667
+    },
+    "f1": {
+      "Realtime": 0.9983361064891847,
+      "Stream": 1.0,
+      "Bulk": 1.0,
+      "Other": 0.9983305509181971
+    },
+    "confusion_matrix": [
+      [
+        600,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        600,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        600,
+        0
+      ],
+      [
+        2,
+        0,
+        0,
+        598
+      ]
+    ],
+    "abstained_count": 0,
+    "abstention_rate_pct": 0.0,
+    "latency": {
+      "p50_us": 0.492,
+      "p95_us": 0.642,
+      "p99_us": 1.124,
+      "n_iterations": 10000
+    }
+  },
+  "deterministic_rules": {
+    "accuracy": 0.75,
+    "macro_f1": 0.6666666666666666,
+    "precision": {
+      "Realtime": 1.0,
+      "Stream": 0.0,
+      "Bulk": 0.5,
+      "Other": 1.0
+    },
+    "recall": {
+      "Realtime": 1.0,
+      "Stream": 0.0,
+      "Bulk": 1.0,
+      "Other": 1.0
+    },
+    "f1": {
+      "Realtime": 1.0,
+      "Stream": 0.0,
+      "Bulk": 0.6666666666666666,
+      "Other": 1.0
+    },
+    "confusion_matrix": [
+      [
+        600,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        600,
+        0
+      ],
+      [
+        0,
+        0,
+        600,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        600
+      ]
+    ],
+    "latency": {
+      "p50_us": 0.923,
+      "p95_us": 1.123,
+      "p99_us": 1.565
+    }
+  }
+}

@@ -1,122 +1,143 @@
 {
-  "dataset": {
-    "total_samples": 2400,
-    "samples_per_class": 600,
-    "classes": [
-      "Realtime",
-      "Stream",
-      "Bulk",
-      "Other"
-    ],
-    "condition": "Held-out synthetic traffic session evaluation"
-  },
-  "tiny_ml": {
-    "accuracy": 0.9991666666666666,
-    "macro_f1": 0.9991666643518454,
-    "precision": {
-      "Realtime": 0.9966777408637874,
-      "Stream": 1.0,
-      "Bulk": 1.0,
-      "Other": 1.0
-    },
-    "recall": {
-      "Realtime": 1.0,
-      "Stream": 1.0,
-      "Bulk": 1.0,
-      "Other": 0.9966666666666667
-    },
-    "f1": {
-      "Realtime": 0.9983361064891847,
-      "Stream": 1.0,
-      "Bulk": 1.0,
-      "Other": 0.9983305509181971
-    },
-    "confusion_matrix": [
-      [
-        600,
-        0,
-        0,
-        0
-      ],
-      [
-        0,
-        600,
-        0,
-        0
-      ],
-      [
-        0,
-        0,
-        600,
-        0
-      ],
-      [
-        2,
-        0,
-        0,
-        598
+  "version": "ml-v2",
+  "held_out_test_flows": 480,
+  "held_out_test_sessions": 96,
+  "tinyml": {
+    "metrics": {
+      "accuracy": 0.9729166666666667,
+      "macro_f1": 0.9701722829600068,
+      "precision": {
+        "Realtime": 0.99,
+        "Stream": 1.0,
+        "Bulk": 1.0,
+        "Other": 0.896551724137931
+      },
+      "recall": {
+        "Realtime": 0.9,
+        "Stream": 1.0,
+        "Bulk": 0.9933333333333333,
+        "Other": 0.9904761904761905
+      },
+      "f1": {
+        "Realtime": 0.9428571428571428,
+        "Stream": 1.0,
+        "Bulk": 0.9966555183946488,
+        "Other": 0.9411764705882353
+      },
+      "confusion_matrix": [
+        [
+          99,
+          0,
+          0,
+          11
+        ],
+        [
+          0,
+          115,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          149,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          104
+        ]
       ]
+    },
+    "macro_f1_ci_95": [
+      0.9503407701900164,
+      0.9852658173542936
     ],
-    "abstained_count": 0,
-    "abstention_rate_pct": 0.0,
-    "latency": {
-      "p50_us": 0.492,
-      "p95_us": 0.642,
-      "p99_us": 1.124,
-      "n_iterations": 10000
-    }
+    "false_promotion_rate_pct": 0.39215686274509803,
+    "false_demotion_rate_pct": 0.0,
+    "abstention_rate_pct": 1.25,
+    "chosen_tau": 0.7
   },
   "deterministic_rules": {
-    "accuracy": 0.75,
-    "macro_f1": 0.6666666666666666,
-    "precision": {
-      "Realtime": 1.0,
-      "Stream": 0.0,
-      "Bulk": 0.5,
-      "Other": 1.0
-    },
-    "recall": {
-      "Realtime": 1.0,
-      "Stream": 0.0,
-      "Bulk": 1.0,
-      "Other": 1.0
-    },
-    "f1": {
-      "Realtime": 1.0,
-      "Stream": 0.0,
-      "Bulk": 0.6666666666666666,
-      "Other": 1.0
-    },
-    "confusion_matrix": [
-      [
-        600,
-        0,
-        0,
-        0
-      ],
-      [
-        0,
-        0,
-        600,
-        0
-      ],
-      [
-        0,
-        0,
-        600,
-        0
-      ],
-      [
-        0,
-        0,
-        0,
-        600
+    "metrics": {
+      "accuracy": 0.63125,
+      "macro_f1": 0.5360077621585874,
+      "precision": {
+        "Realtime": 0.7608695652173914,
+        "Stream": 0.0,
+        "Bulk": 0.5660377358490566,
+        "Other": 0.6747967479674797
+      },
+      "recall": {
+        "Realtime": 0.6363636363636364,
+        "Stream": 0.0,
+        "Bulk": 1.0,
+        "Other": 0.7904761904761904
+      },
+      "f1": {
+        "Realtime": 0.693069306930693,
+        "Stream": 0.0,
+        "Bulk": 0.7228915662650602,
+        "Other": 0.7280701754385964
+      },
+      "confusion_matrix": [
+        [
+          70,
+          0,
+          0,
+          40
+        ],
+        [
+          0,
+          0,
+          115,
+          0
+        ],
+        [
+          0,
+          0,
+          150,
+          0
+        ],
+        [
+          22,
+          0,
+          0,
+          83
+        ]
       ]
+    },
+    "macro_f1_ci_95": [
+      0.4920733916513472,
+      0.5753639340423129
     ],
-    "latency": {
-      "p50_us": 0.923,
-      "p95_us": 1.123,
-      "p99_us": 1.565
+    "false_promotion_rate_pct": 8.627450980392156,
+    "false_demotion_rate_pct": 51.11111111111111
+  },
+  "condition_shift": {
+    "low_load_macro_f1": 0.9739310344827586,
+    "high_competing_load_macro_f1": 0.9634564352056612,
+    "delta": -0.010474599277097485
+  },
+  "real_application_benchmark": {
+    "n_sessions": 40,
+    "accuracy": 0.55,
+    "macro_f1": 0.4649122807017544,
+    "per_class_f1": {
+      "Realtime": 0.0,
+      "Stream": 1.0,
+      "Bulk": 0.33333333333333337,
+      "Other": 0.5263157894736842
     }
+  },
+  "disaggregated_latency_us": {
+    "t_feat_us": 3.796,
+    "t_infer_p50_us": 1.043,
+    "t_infer_p99_us": 2.446,
+    "t_decision_us": 4.839,
+    "t_policy_us": 0.127,
+    "t_end_to_end_us": 4.967
   }
 }

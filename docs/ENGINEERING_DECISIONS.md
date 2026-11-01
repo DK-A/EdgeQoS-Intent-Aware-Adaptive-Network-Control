@@ -234,6 +234,38 @@ The following table summarizes the foundational engineering decisions that defin
 
 ---
 
+### ADR-011: Real-Stack Network Traffic Dataset vs. Separable Synthetic Distributions (ml-v2)
+
+* **Context:** Machine learning models trained on overly simplified synthetic data memorize non-overlapping distributions, producing misleadingly high evaluation metrics that fail to generalize to real networks.
+* **Alternatives Considered:**
+  1. *Hand-Crafted Synthetic Generator (v1):* Generating idealized, non-overlapping packet lengths and inter-arrival times in Python.
+  2. *Retaining v1 with Artificial Noise:* Adding random jitter to synthetic models without real network stacks.
+  3. *Real-Stack Kernel Network Dataset with Pre-Registered Protocol (ml-v2):* Generating traffic via real Linux kernel network sockets (`AF_INET` TCP/UDP, `libopus` audio, real HTTP chunk streams, TCP CUBIC transfers), splitting strictly by session ID, and pre-registering the protocol before opening test partitions.
+* **Decision:** Adopt **Real-Stack Kernel Network Dataset with Pre-Registered Protocol (ml-v2)**.
+* **Rationale:**
+  * Version 1 reported ~99.9% accuracy because synthetic distributions were trivially separable by shallow decision trees.
+  * Real networks involve genuine protocol interactions: kernel TCP segmentation, delayed ACKs, transport jitter, and competing cross-traffic.
+  * Real-stack traffic generation (`ml/collect/real_stack_collector.py`) forces the model to learn real transport dynamics, yielding honest empirical test metrics (97.29% accuracy, 0.9702 Macro F1) and an explicit real-application generalization benchmark (`docs/REAL_APPLICATION_DATASET.md`).
+* **Verification:** Pre-registered protocol (`ml/PROTOCOL.md`), archived v1 results (`results/archive_v1_synthetic/`), and empirical report (`docs/ML_EVALUATION.md`).
+
+---
+
+### ADR-012: Integrated Two-Tier Safety Net: Calibrated Abstention Coupled with Behavioral Rate Guard
+
+* **Context:** Early-flow classification ($N \le 10$ packets) faces intrinsic ambiguity during protocol handshakes and TCP slow start. Relying exclusively on an early classifier risks false promotions that pollute latency-sensitive queues.
+* **Alternatives Considered:**
+  1. *Forced Early Classification:* Always assigning a priority class to every flow regardless of prediction confidence.
+  2. *Classifier-Only Decision:* Trusting the ML model as the sole arbiter of flow classification without subsequent data-plane supervision.
+  3. *Integrated Two-Tier Safety Net (Abstention + Data-Plane Rate Guard):* Applying Calibrated Confidence Abstention ($\tau = 0.70$) at Tier 1 to default uncertain flows to Best-Effort (`CS0`), combined with Tier 2 Behavioral Rate Guard ($SC_6$) continuously auditing conntrack byte rates at 4 Hz to demote misclassified or adversarial flows within $\le 1.25\text{ seconds}$.
+* **Decision:** Adopt **Integrated Two-Tier Safety Net (Abstention + Data-Plane Rate Guard)**.
+* **Rationale:**
+  * In edge QoS, false promotion is asymmetric: promoting a bulk download to Voice destroys latency for all real-time users, whereas keeping an uncertain flow in Best-Effort is harmless due to CAKE's FQ-CoDel fair queuing.
+  * Calibrated Abstention ($\tau = 0.70$) selected on the validation set reduces False-Promotion Rate to $0.39\%$ (compared to $8.63\%$ for deterministic rules).
+  * If any flow slips through or changes behavior, the in-kernel Behavioral Rate Guard detects sustained throughput exceeding the class ceiling ($5.0\text{ Mbps}$) and demotes it within $\le 1.25\text{s}$ ($1.00\text{s}$ measured).
+* **Verification:** Confirmed in `tests/test_guard_integration.py` and Scenario $SC_6$ demotion benchmarks (`results/demotion_cdf.png`).
+
+---
+
 ## 4. Non-Functional Requirements & Engineering Guardrails
 
 The EdgeQoS design choices enforce strict non-functional bounds across all operational dimensions:

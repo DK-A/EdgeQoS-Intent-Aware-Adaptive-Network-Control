@@ -80,7 +80,7 @@ def draw_model_latency_chart(output_path="results/model_latency_comparison.png")
     plot_h = h - margin_t - margin_b
 
     models = [
-        ("EdgeQoS Tree", 0.741, "0.741 µs (p50)", (16, 185, 129)),
+        ("EdgeQoS Decision", 4.57, "4.57 µs (0.87µs tree)", (16, 185, 129)),
         ("Random Forest (10)", 14.8, "14.8 µs", (6, 182, 212)),
         ("1D-CNN (5 layers)", 18400.0, "18.4 ms (18,400 µs)", (245, 158, 11)),
         ("Bi-LSTM", 32000.0, "32.0 ms (32,000 µs)", (239, 68, 68)),

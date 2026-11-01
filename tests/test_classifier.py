@@ -1,32 +1,32 @@
 """
-tests/test_classifier.py - Unit Tests & Latency Benchmark for ZeroDPIClassifier
+tests/test_classifier.py - Unit Tests & Latency Benchmark for ZeroDPIClassifier (ml-v2)
 """
 
 import os
 import sys
 import json
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from daemon.edgeqosd.model import ZeroDPIClassifier
 
 def test_classifier():
-    classifier = ZeroDPIClassifier(model_path="ml/models/tree_model.json", tau_confidence=0.85)
+    classifier = ZeroDPIClassifier(model_path="ml/models/tree_model.json", tau_confidence=0.70)
 
-    # 1. VoIP vector: small positive and negative lengths, ~20ms IAT (log10(20000) ~ 4.3), UDP=1.0
-    voip_feat = [120.0, -120.0, 120.0, -120.0, 120.0, -120.0, 120.0, -120.0, 120.0, -120.0,
-                 4.3, 4.3, 4.3, 4.3, 4.3, 4.3, 4.3, 4.3, 4.3,
-                 1.0, 0.5, 120.0]
+    # Load representative samples from dataset_v2
+    with open("ml/data/dataset_v2.json", "r") as f:
+        data = json.load(f)
 
-    cls, conf, abstained = classifier.classify_with_abstention(voip_feat)
+    realtime_sample = next(d["features"] for d in data if d["class_name"] == "Realtime")
+    bulk_sample = next(d["features"] for d in data if d["class_name"] == "Bulk")
+
+    # 1. Realtime classification
+    cls, conf, abstained = classifier.classify_with_abstention(realtime_sample)
     print(f"VoIP test classification: class={cls}, conf={conf:.4f}, abstained={abstained}")
     assert cls == "Realtime", f"Expected Realtime, got {cls}"
-    assert not abstained, "VoIP flow should not abstain"
+    assert not abstained, "Realtime flow should not abstain"
 
-    # 2. Bulk download vector: large negative lengths (-1500B), tiny ACKs (54B), TCP=0.0
-    bulk_feat = [60.0, -60.0, 54.0, -1500.0, -1500.0, 54.0, -1500.0, -1500.0, 54.0, -1500.0,
-                 4.1, 3.0, 3.5, 2.8, 2.5, 2.9, 2.4, 2.6, 2.4,
-                 0.0, 0.3, 56.0]
-
-    cls, conf, abstained = classifier.classify_with_abstention(bulk_feat)
+    # 2. Bulk download classification
+    cls, conf, abstained = classifier.classify_with_abstention(bulk_sample)
     print(f"Bulk test classification: class={cls}, conf={conf:.4f}, abstained={abstained}")
     assert cls == "Bulk", f"Expected Bulk, got {cls}"
     assert not abstained, "Bulk flow should not abstain"
@@ -37,7 +37,7 @@ def test_classifier():
     print(f"Ambiguous test classification: class={cls}, conf={conf:.4f}, abstained={abstained}")
 
     # 4. Latency Benchmark over 10,000 iterations (Section 7.3 requirement)
-    bench = classifier.benchmark_latency(voip_feat, n_iterations=10000)
+    bench = classifier.benchmark_latency(realtime_sample, n_iterations=10000)
     print(f"[+] Measured Tree Inference Latency (10^4 iterations):")
     print(f"    p50: {bench['p50_us']:.3f} us")
     print(f"    p95: {bench['p95_us']:.3f} us")

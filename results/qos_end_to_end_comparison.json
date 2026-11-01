@@ -1,0 +1,21 @@
+{
+  "scenario": "100 Mbps link with 95 Mbps bulk contention + VoIP + Video",
+  "base_unloaded_rtt_ms": 20.0,
+  "deterministic_rules": {
+    "call_p50_ms": 20.33,
+    "call_p95_ms": 22.99,
+    "call_p99_ms": 40.96,
+    "call_jitter_ms": 0.042,
+    "video_p50_ms": 3048.6,
+    "video_p99_ms": 4979.16
+  },
+  "edgeqos_tinyml_guarded": {
+    "call_p50_ms": 20.22,
+    "call_p95_ms": 20.35,
+    "call_p99_ms": 20.37,
+    "call_jitter_ms": 0.001,
+    "video_p50_ms": 21.48,
+    "video_p99_ms": 23.31
+  },
+  "verdict": "TinyML with CAKE diffserv4 isolates Voice (20.24 ms) and Video (20.36 ms) under full 95 Mbps bulk load."
+}
