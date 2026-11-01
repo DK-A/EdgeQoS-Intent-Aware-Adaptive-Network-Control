@@ -153,6 +153,8 @@ By steering latency-sensitive flows to Tin 3 via early-flow TinyML, EdgeQoS math
 | **Bandwidth Estimation** | Active Speedtest Flooding (iperf3/ookla) | **Passive Queue-RTT Latched Hysteresis** | Active probing consumes customer data quotas and induces artificial congestion. EdgeQoS tracks external reflector RTT and internal backlog passively, adjusting rate steps only when queue inflation is verified. |
 | **Data Plane Path** | Userspace DPDK / AF_XDP Software Switch | **Linux In-Kernel Netfilter + `tc-cake`** | Userspace forwarding requires dedicated core polling (100% CPU utilization). Leveraging native Linux kernel `nftables` and `tc-cake` preserves line-rate forwarding with zero kernel-bypass complexity. |
 
+> 📘 **Formal Architecture Decision Records (ADRs):** For the complete deep-dive documentation of all design choices, alternatives considered, failure mitigations, and formal trade-off analyses, refer to [docs/ENGINEERING_DECISIONS.md](docs/ENGINEERING_DECISIONS.md).
+
 ---
 
 ## 📖 Taxonomy & Notation Guide
@@ -430,6 +432,7 @@ Developed by a 2-member **Electronics & Communication Engineering (ECE)** team f
 │   │   ├── architecture_workflow.png
 │   │   └── noc_dashboard_preview.png
 │   ├── EDGEQOS_COMPREHENSIVE_VERIFICATION_REPORT.md
+│   ├── ENGINEERING_DECISIONS.md # Complete Architecture Decision Records (ADRs)
 │   ├── result_provenance.md
 │   └── tin_map_observed.md
 ├── ml/                     # Sub-microsecond Decision Tree flow classifier & training scripts
